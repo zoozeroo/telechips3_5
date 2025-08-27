@@ -124,12 +124,12 @@ int app_run(void) {
                 if (key == ALLEGRO_KEY_SPACE) g_state = STATE_MENU;
             }
             else if (g_state == STATE_PLAY) {
-                // 숫자키 선택/해제 (상단 숫자+키패드)
+                // WASD : 아이템 선택/해제 (상단 숫자)
                 switch (key) {
-                case ALLEGRO_KEY_1: case ALLEGRO_KEY_PAD_1: selected_item = 1; break;
-                case ALLEGRO_KEY_2: case ALLEGRO_KEY_PAD_2: selected_item = 2; break;
-                case ALLEGRO_KEY_3: case ALLEGRO_KEY_PAD_3: selected_item = 3; break;
-                case ALLEGRO_KEY_4: case ALLEGRO_KEY_PAD_4: selected_item = 0; break;
+                case ALLEGRO_KEY_A: selected_item = 1; break;
+                case ALLEGRO_KEY_S: selected_item = 2; break;
+                case ALLEGRO_KEY_D: selected_item = 3; break;
+                case ALLEGRO_KEY_W: selected_item = 0; break;
                 }
 
                 // 방향키 커서 이동
@@ -138,7 +138,6 @@ int app_run(void) {
                 if (key == ALLEGRO_KEY_UP && sel_row > 0)               sel_row--;
                 if (key == ALLEGRO_KEY_DOWN && sel_row < GRID_ROWS - 1)   sel_row++;
 
-                // 스페이스: 현재 셀 반투명 색칠 (1:빨강, 2:파랑, 3:노랑)
                 if (key == ALLEGRO_KEY_SPACE) {
                     if (selected_item >= 1 && selected_item <= 3 &&
                         grid_marks[sel_row][sel_col] == 0) {
