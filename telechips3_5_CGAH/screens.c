@@ -27,6 +27,10 @@ static bool point_in_rect(float px, float py, Rect r) {                         
     return (px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h);
 }
 
+// 격자 배치 파라미터
+static const int GRID_MARGIN_X = 16;   // 좌우 여백
+static const int GRID_TOP = 149;   // 격자 시작 Y
+
 void draw_menu(int W, int H, Rect btn_start, Rect btn_howto, Rect btn_rank,         //메인화면에 표시될 메뉴 상자 그리기
     float mx, float my) {
     draw_bg(bg_home ? bg_home : bg_play, W, H);
@@ -59,7 +63,7 @@ void draw_menu(int W, int H, Rect btn_start, Rect btn_howto, Rect btn_rank,     
         W / 2, H - 80, ALLEGRO_ALIGN_CENTER, "Click the button to start");
 }
 
-void draw_play(int W, int H, int score_second, int selected_item) {                                                                   //게임 플레이 화면에 출력될 문구. 변수 집어넣고 싶으면 textf 함수 사용하기
+void draw_play(int W, int H, int score_second, int sel_col, int sel_row, int selected_item, const int marks[GRID_ROWS][GRID_COLS]) {                                                                   //게임 플레이 화면에 출력될 문구. 변수 집어넣고 싶으면 textf 함수 사용하기
     draw_bg(bg_play ? bg_play : bg_home, W, H);
     char t[32];
     fmt_time_s(score_second, t, sizeof t);
@@ -67,11 +71,23 @@ void draw_play(int W, int H, int score_second, int selected_item) {             
     const float pad = 35.0f;   // 화면 가장자리 여백
     const float size = 30.0f;  // 칸 한 변 길이
     const float gap = 12.0f;   // 칸 사이 간격
+
+    // 격자 셀 크기 계산(정사각형)
+    int avail_w = W - GRID_MARGIN_X * 2;
+    int avail_h = H - GRID_TOP - 16;
+    int cell_w = avail_w / GRID_COLS;
+    int cell_h = avail_h / GRID_ROWS;
+    int cell = (cell_w < cell_h) ? cell_w : cell_h;
+
+    int grid_x0 = GRID_MARGIN_X + (avail_w - cell * GRID_COLS) / 2;
+    int grid_y0 = GRID_TOP + (avail_h - cell * GRID_ROWS) / 2;
+
     for (int i = 0; i < 3; ++i) {
         float x1 = pad + i * (size + gap);
         float y1 = pad;
         float x2 = x1 + size;
         float y2 = y1 + size;
+        al_draw_filled_rectangle(x1, y1, x2, y2, al_map_rgba(255, 255, 255, 40));
         al_draw_filled_rectangle(x1, y1, x2, y2, al_map_rgb(60, 60, 60));
         // 선택 여부에 따른 테두리 색(흰색/노란색)
         bool picked = (selected_item == (i + 1));
@@ -80,10 +96,41 @@ void draw_play(int W, int H, int score_second, int selected_item) {             
     }
 
     al_draw_text(font_title, al_map_rgb(255, 255, 255), W / 2, 140, ALLEGRO_ALIGN_CENTER, "GAME SCREEN");
-    al_draw_text(font_ui, al_map_rgb(200, 220, 240), W / 2, 260, ALLEGRO_ALIGN_CENTER, "Press SPACEBAR and ENTER for SUCCESS");
+    al_draw_text(font_ui, al_map_rgb(200, 220, 240), W / 2, 260, ALLEGRO_ALIGN_CENTER, "Press ENTER for SUCCESS");
     al_draw_textf(font_ui, al_map_rgb(220, 220, 230), W / 2, 200, ALLEGRO_ALIGN_CENTER, "TIME : %s", t);
     al_draw_text(font_ui, al_map_rgb(240, 200, 200), W / 2, 290, ALLEGRO_ALIGN_CENTER, "Press BACKSPACE for FAIL");
     al_draw_text(font_ui, al_map_rgb(220, 220, 230), W / 2, H - 80, ALLEGRO_ALIGN_CENTER, "ESC to quit");
+    
+
+    // 색칠된 칸 채우기(반투명 50%)
+    for (int r = 0; r < GRID_ROWS; ++r) {
+        for (int c = 0; c < GRID_COLS; ++c) {
+            int id = marks[r][c];           // 0=없음, 1/2/3=각 아이템
+            if (!id) continue;
+
+            ALLEGRO_COLOR fill;
+            if (id == 1)      fill = al_map_rgba(255, 0, 0, 128); // 빨강 50%
+            else if (id == 2) fill = al_map_rgba(0, 128, 255, 128); // 파랑 50%
+            else               fill = al_map_rgba(255, 215, 0, 128); // 노랑 50%
+
+            // 칸 안쪽에 여백 주고 채우기(테두리와 안 겹치게)
+            float x1 = (float)(grid_x0 + c * cell) + 4.0f;
+            float y1 = (float)(grid_y0 + r * cell) + 4.0f;
+            float x2 = x1 + (float)cell - 8.0f;
+            float y2 = y1 + (float)cell - 8.0f;
+            al_draw_filled_rectangle(x1, y1, x2, y2, fill);
+        }
+    }
+
+    //현재 선택 셀 테두리(흰색)
+    if (sel_col >= 0 && sel_col < GRID_COLS && sel_row >= 0 && sel_row < GRID_ROWS) {
+        float x1 = (float)(grid_x0 + sel_col * cell);
+        float y1 = (float)(grid_y0 + sel_row * cell);
+        float x2 = x1 + (float)cell;
+        float y2 = y1 + (float)cell;
+        // 반픽셀 보정으로 선 번짐 방지
+        al_draw_rectangle(x1 + 0.5f, y1 + 0.5f, x2 - 0.5f, y2 - 0.5f, al_map_rgb(255, 255, 255), 3.0f);
+    }
 }
 
 void draw_howto(int W, int H) {                                                                 //게임 방법 화면에 출력될 문구. 나중에 변경해주기

@@ -1,4 +1,5 @@
 #define _CRT_SECURE_NO_WARNINGS
+#include <string.h>
 #include <allegro5/allegro5.h>
 #include <allegro5/allegro_font.h>
 #include <allegro5/allegro_primitives.h>
@@ -8,7 +9,6 @@
 #include "assets.h"
 #include "score.h"
 #include "screens.h"
-#include <string.h>
 
 typedef enum { STATE_MENU = 0, STATE_PLAY, STATE_HOWTO, STATE_RANK, STATE_END } GameState;
 typedef enum { RESULT_NONE = 0, RESULT_SUCCESS, RESULT_FAIL } GameResult;
@@ -16,11 +16,10 @@ typedef enum { RESULT_NONE = 0, RESULT_SUCCESS, RESULT_FAIL } GameResult;
 static GameState  g_state = STATE_MENU;
 static GameResult g_result = RESULT_NONE;
 
-static char name_buf[NAME_MAX] = { 0 };
-static int  name_len = 0;
-static bool end_recorded = false;
+static char   name_buf[NAME_MAX] = { 0 };
+static int    name_len = 0;
+static bool   end_recorded = false;
 static double play_start_time = 0.0;
-static int selected_item = 0;
 
 static bool point_in_rect(float px, float py, Rect r) {
     return (px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h);
@@ -41,76 +40,67 @@ int app_run(void) {
     score_load(SCORE_FILE);
     if (!assets_load()) return 1;
 
-    ALLEGRO_TIMER* frame_timer = al_create_timer(1.0 / 60.0); // 화면/로직용 60Hz
-    ALLEGRO_TIMER* sec_timer = al_create_timer(1.0);        // 1Hz(=1초) 타이머
-    ALLEGRO_EVENT_QUEUE* q = al_create_event_queue();               //모든 이벤트 큐에 저장
+    ALLEGRO_TIMER* frame_timer = al_create_timer(1.0 / 60.0); // 60Hz
+    ALLEGRO_EVENT_QUEUE* q = al_create_event_queue();
 
     al_register_event_source(q, al_get_timer_event_source(frame_timer));
-    al_register_event_source(q, al_get_timer_event_source(sec_timer));
     al_register_event_source(q, al_get_display_event_source(disp));
     al_register_event_source(q, al_get_keyboard_event_source());
     al_register_event_source(q, al_get_mouse_event_source());
     al_start_timer(frame_timer);
-    al_start_timer(sec_timer);
 
-    Rect btn_start = { W / 2.0f - 120, H / 2.0f - 100, 240, 50 };               //버튼 생성
+    Rect btn_start = { W / 2.0f - 120, H / 2.0f - 100, 240, 50 };
     Rect btn_howto = { W / 2.0f - 120, H / 2.0f - 25, 240, 50 };
     Rect btn_rank = { W / 2.0f - 120, H / 2.0f + 50, 240, 50 };
 
-    float mx = 0, my = 0;                               //마우스 x축, y축 위치
-    int score = 0;                                          //게임 점수
+    float mx = 0, my = 0;
+    int   score = 0;
+
+    // 격자/아이템 선택 상태
+    int selected_item = 0;          // 0=선택없음, 1/2/3
+    int sel_col = 0, sel_row = 0;   // 커서 위치(0,0) 시작
+    int grid_marks[GRID_ROWS][GRID_COLS]; // 0=없음, 1/2/3 색
+
     bool running = true, redraw = true;
 
     while (running) {
         ALLEGRO_EVENT ev;
         al_wait_for_event(q, &ev);
 
-        if (ev.type == ALLEGRO_EVENT_DISPLAY_CLOSE) {           //디스플레이 꺼지면 게임 종료
+        if (ev.type == ALLEGRO_EVENT_DISPLAY_CLOSE) {
             running = false;
         }
         else if (ev.type == ALLEGRO_EVENT_TIMER) {
-            if (ev.timer.source == frame_timer) {
-                redraw = true;
-            }
-            else if (ev.timer.source == sec_timer) {
-                if (g_state == STATE_PLAY) {
-                    score += 1; // 1초에 한 번씩 증가
-                }
-            }
+            if (ev.timer.source == frame_timer) redraw = true;
         }
-        else if (ev.type == ALLEGRO_EVENT_MOUSE_AXES) {         //마우스 축 : 위치
+        else if (ev.type == ALLEGRO_EVENT_MOUSE_AXES) {
             mx = ev.mouse.x; my = ev.mouse.y;
         }
-        else if (ev.type == ALLEGRO_EVENT_MOUSE_BUTTON_DOWN) {      //버튼 클릭하면 실행
-            if (g_state == STATE_MENU) {                //메인 메뉴 화면일 때
-                if (point_in_rect(mx, my, btn_start)) {         //스타트 버튼을 누르면
-                    g_state = STATE_PLAY;                   //플레이 시작
-                    g_result = RESULT_NONE;             
-                    score = 0;                                      //매 플레이마다 점수 0으로 초기화
-                    end_recorded = false;
-                    name_len = 0; name_buf[0] = '\0';               //닉네임 0으로 초기화
-                    play_start_time = al_get_time();                    //플레이 타임 기록 시작
-                    selected_item = 0;
-                }
-                else if (point_in_rect(mx, my, btn_howto)) {    //게임방법 버튼을 누르면
-                    g_state = STATE_HOWTO;                          //창 넘어가짐
-                    g_result = RESULT_NONE; 
-                }
-                else if (point_in_rect(mx, my, btn_rank)) {     //랭킹 버튼을 누르면
-                    g_state = STATE_RANK;                           //랭킹 창으로 넘어감
+        else if (ev.type == ALLEGRO_EVENT_MOUSE_BUTTON_DOWN) {
+            if (g_state == STATE_MENU) {
+                if (point_in_rect(mx, my, btn_start)) {
+                    g_state = STATE_PLAY;
                     g_result = RESULT_NONE;
+                    score = 0;
+                    end_recorded = false;
+                    name_len = 0; name_buf[0] = '\0';
+                    play_start_time = al_get_time();
+
+                    selected_item = 0;
+                    sel_col = 0; sel_row = 0;
+                    memset(grid_marks, 0, sizeof grid_marks);
+                }
+                else if (point_in_rect(mx, my, btn_howto)) {
+                    g_state = STATE_HOWTO; g_result = RESULT_NONE;
+                }
+                else if (point_in_rect(mx, my, btn_rank)) {
+                    g_state = STATE_RANK;  g_result = RESULT_NONE;
                 }
             }
         }
-        else if (ev.type == ALLEGRO_EVENT_KEY_CHAR) {           //키보드 입력(영어)
-            if (g_state == STATE_PLAY) {                 // ★ 플레이 중 숫자 '1','2','3','4' 처리
-                int ch = ev.keyboard.unichar;
-                if (ch == '1') selected_item = 1;
-                else if (ch == '2') selected_item = 2;
-                else if (ch == '3') selected_item = 3;
-                else if (ch == '4') selected_item = 0;   // 해제
-            }
-            else if (g_state == STATE_END) {                                         //게임 종료 시 (닉네임 입력 코드)
+        else if (ev.type == ALLEGRO_EVENT_KEY_CHAR) {
+            // END에서만 문자 입력(닉네임)
+            if (g_state == STATE_END) {
                 int ch = ev.keyboard.unichar;
                 if (ev.keyboard.keycode == ALLEGRO_KEY_BACKSPACE) {
                     if (name_len > 0) name_buf[--name_len] = '\0';
@@ -123,52 +113,78 @@ int app_run(void) {
                 }
             }
         }
-        else if (ev.type == ALLEGRO_EVENT_KEY_DOWN) {               
+        else if (ev.type == ALLEGRO_EVENT_KEY_DOWN) {
             int key = ev.keyboard.keycode;
-            if (key == ALLEGRO_KEY_ESCAPE) running = false;                 //esc 누르면 게임 종료
+            if (key == ALLEGRO_KEY_ESCAPE) running = false;
 
-            if (g_state == STATE_HOWTO) {                                               //게임방법 창에서 스페이스바 누르면 메인화면으로 돌아감
+            if (g_state == STATE_HOWTO) {
                 if (key == ALLEGRO_KEY_SPACE) g_state = STATE_MENU;
             }
-            else if (g_state == STATE_RANK) {                                           //랭킹 창에서 스페이스바 누르면 메인화면으로 돌아감
+            else if (g_state == STATE_RANK) {
                 if (key == ALLEGRO_KEY_SPACE) g_state = STATE_MENU;
             }
-            else if (g_state == STATE_PLAY) {                                           //플레이 중 엔터를 누르면 성공, 게임 종료 화면으로 넘어감->게임 로직 적용 시 변경될 내용
+            else if (g_state == STATE_PLAY) {
+                // 숫자키 선택/해제 (상단 숫자+키패드)
+                switch (key) {
+                case ALLEGRO_KEY_1: case ALLEGRO_KEY_PAD_1: selected_item = 1; break;
+                case ALLEGRO_KEY_2: case ALLEGRO_KEY_PAD_2: selected_item = 2; break;
+                case ALLEGRO_KEY_3: case ALLEGRO_KEY_PAD_3: selected_item = 3; break;
+                case ALLEGRO_KEY_4: case ALLEGRO_KEY_PAD_4: selected_item = 0; break;
+                }
+
+                // 방향키 커서 이동
+                if (key == ALLEGRO_KEY_LEFT && sel_col > 0)               sel_col--;
+                if (key == ALLEGRO_KEY_RIGHT && sel_col < GRID_COLS - 1)   sel_col++;
+                if (key == ALLEGRO_KEY_UP && sel_row > 0)               sel_row--;
+                if (key == ALLEGRO_KEY_DOWN && sel_row < GRID_ROWS - 1)   sel_row++;
+
+                // 스페이스: 현재 셀 반투명 색칠 (1:빨강, 2:파랑, 3:노랑)
+                if (key == ALLEGRO_KEY_SPACE) {
+                    if (selected_item >= 1 && selected_item <= 3 &&
+                        grid_marks[sel_row][sel_col] == 0) {
+                        grid_marks[sel_row][sel_col] = selected_item;
+                    }
+                }
+
+                // 게임 종료(성공/실패) → 점수는 소요 시간(초)
                 if (key == ALLEGRO_KEY_ENTER) {
                     g_result = RESULT_SUCCESS;
                     score = (int)(al_get_time() - play_start_time);
                     g_state = STATE_END;
                 }
+                else if (key == ALLEGRO_KEY_BACKSPACE) {
+                    g_result = RESULT_FAIL;
+                    score = (int)(al_get_time() - play_start_time);
+                    g_state = STATE_END;
+                }
             }
-            else if (key == ALLEGRO_KEY_BACKSPACE) {                         //백스페이스 누르면 실패, 게임 종료 화면으로 넘어감
-                g_result = RESULT_FAIL;
-                score = (int)(al_get_time() - play_start_time);
-                g_state = STATE_END;
-            }
-            else if (g_state == STATE_END) {                                        //게임 종료 화면에서
-                if (key == ALLEGRO_KEY_ENTER) {                                 //엔터를 누르면 점수와 닉네임이 저장됨
+            else if (g_state == STATE_END) {
+                if (key == ALLEGRO_KEY_ENTER) {
                     if (!end_recorded) {
                         score_add_and_save(score, name_buf, SCORE_FILE);
                         end_recorded = true;
                     }
-                    g_state = STATE_MENU;                                               // 저장 후 메뉴
+                    g_state = STATE_MENU;
                 }
                 else if (key == ALLEGRO_KEY_SPACE) {
-                    g_state = STATE_MENU;                                               // 저장 없이 메뉴
+                    g_state = STATE_MENU;
                 }
             }
         }
 
+        // === 그리기(이벤트 분기 바깥) ===
         if (redraw && al_is_event_queue_empty(q)) {
             switch (g_state) {
-            case STATE_MENU:  draw_menu(W, H, btn_start, btn_howto, btn_rank, mx, my); break;
+            case STATE_MENU:
+                draw_menu(W, H, btn_start, btn_howto, btn_rank, mx, my);
+                break;
             case STATE_PLAY: {
-                int live_sec = (int)(al_get_time() - play_start_time);    // 초 단위로 변환
-                draw_play(W, H, live_sec, selected_item);                 // 선택 상태 전달
+                int live_sec = (int)(al_get_time() - play_start_time);
+                draw_play(W, H, live_sec, sel_col, sel_row, selected_item, grid_marks);
                 break;
             }
             case STATE_HOWTO: draw_howto(W, H); break;
-            case STATE_RANK:  draw_rank(W, H); break;
+            case STATE_RANK:  draw_rank(W, H);  break;
             case STATE_END:   draw_end(W, H, name_buf, score, (g_result == RESULT_SUCCESS)); break;
             }
             al_flip_display();
@@ -178,7 +194,6 @@ int app_run(void) {
 
     assets_unload();
     al_destroy_event_queue(q);
-    al_destroy_timer(sec_timer);
     al_destroy_timer(frame_timer);
     al_destroy_display(disp);
     return 0;
