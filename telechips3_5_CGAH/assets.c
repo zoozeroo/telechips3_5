@@ -17,6 +17,8 @@ ALLEGRO_BITMAP* icon_sleeping = NULL;
 ALLEGRO_BITMAP* icon_people1 = NULL;
 ALLEGRO_BITMAP* icon_people2 = NULL;
 ALLEGRO_BITMAP* icon_people3 = NULL;
+ALLEGRO_BITMAP* icon_coffee_bean = NULL;
+
 
 bool assets_load(void) {
     font_title = al_create_builtin_font();                      //제목 : 기본 폰트 사용
@@ -38,6 +40,7 @@ bool assets_load(void) {
     const int P1Y = 39, P1WH = 34;                      // P1-3 : 아이템 1-3번이 각각 적용된 사람들
     const int P2Y = 75;
     const int P3Y = 110;
+    const int BEAN_X = 10, BEAN_Y = 179, BEAN_W = 17, BEAN_H = 18; // 커피콩(재화)
 
     icon_coffee_1 = al_create_sub_bitmap(spr_items, C1X, C1Y, CWH, CWH);
     icon_coffee_2 = al_create_sub_bitmap(spr_items, C2X, C2Y, CWH, CWH);
@@ -46,6 +49,7 @@ bool assets_load(void) {
     icon_people1 = al_create_sub_bitmap(spr_items, P0X, P1Y, P1WH, P1WH);
     icon_people2 = al_create_sub_bitmap(spr_items, P0X, P2Y, P1WH, P1WH);
     icon_people3 = al_create_sub_bitmap(spr_items, P0X, P3Y, P1WH, P1WH);
+    icon_coffee_bean = al_create_sub_bitmap(spr_items, BEAN_X, BEAN_Y, BEAN_W, BEAN_H);
 
     return true;
 }

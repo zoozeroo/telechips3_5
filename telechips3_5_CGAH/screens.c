@@ -84,7 +84,14 @@ void draw_play(int W, int H, int score_second,
     char t[32]; fmt_time_s(score_second, t, sizeof t);
 
     // (A) 좌상단 슬롯 + 아이콘
-    const float pad = 35.0f, size = 30.0f, gap = 12.0f;
+    // draw_play() 안에서 (좌상단 슬롯 + 아이콘 + 커피콩 + 숫자)
+    // draw_play() 안에서 (좌상단 슬롯 + 아이콘 + 커피콩 + 숫자)
+    const float pad = 35.0f;
+    const float size = 62.0f;   // 슬롯 박스 크기
+    const float gap = 18.0f;    // 슬롯 간격
+    const float inset = 6.0f;   // 슬롯 여백
+    const float bean_draw_size = 20.0f; // 화면에 그릴 커피콩 크기
+
     for (int i = 0; i < 3; ++i) {
         float x1 = pad + i * (size + gap);
         float y1 = pad;
@@ -92,12 +99,12 @@ void draw_play(int W, int H, int score_second,
 
         al_draw_filled_rectangle(x1, y1, x2, y2, al_map_rgb(60, 60, 60));
 
+        // 커피 아이콘
         ALLEGRO_BITMAP* icon =
             (i == 0) ? icon_coffee_1 :
             (i == 1) ? icon_coffee_2 :
             icon_coffee_3;
         if (icon) {
-            const float inset = 4.0f;
             float iw = (float)al_get_bitmap_width(icon);
             float ih = (float)al_get_bitmap_height(icon);
             float dw = size - inset * 2.0f;
@@ -108,10 +115,31 @@ void draw_play(int W, int H, int score_second,
             al_draw_scaled_bitmap(icon, 0, 0, (int)iw, (int)ih, dx, dy, dw, dh, 0);
         }
 
+        // 선택 테두리
         bool picked = (selected_item == (i + 1));
         ALLEGRO_COLOR o = picked ? al_map_rgb(255, 215, 0) : al_map_rgb(255, 255, 255);
         al_draw_rectangle(x1 - 1.5f, y1 - 1.5f, x2 + 1.5f, y2 + 1.5f, o, 3.0f);
+
+        // 커피콩 + 가격
+        if (icon_coffee_bean) {
+            float slot_center = x1 + size * 0.5f;
+            float bean_y = y2 + 6.0f;
+
+            float bean_w = (float)al_get_bitmap_width(icon_coffee_bean);
+            float bean_h = (float)al_get_bitmap_height(icon_coffee_bean);
+
+            float bean_x = slot_center - (bean_draw_size + 20) * 0.5f;
+
+            al_draw_scaled_bitmap(icon_coffee_bean, 0, 0, (int)bean_w, (int)bean_h,
+                bean_x, bean_y, bean_draw_size, bean_draw_size, 0);
+
+            // 가격 숫자 (10, 20, 30)
+            int cost = (i == 0) ? 10 : (i == 1) ? 20 : 30;
+            al_draw_textf(font_ui, al_map_rgb(0, 0, 0), bean_x + bean_draw_size + 7, bean_y + 7, 0, "%d", cost); // 살짝 위로 올리기
+        }
     }
+
+
 
     // (B) 안내 텍스트
     al_draw_text(font_title, al_map_rgb(255, 255, 255), W / 2, 140, ALLEGRO_ALIGN_CENTER, "GAME SCREEN");

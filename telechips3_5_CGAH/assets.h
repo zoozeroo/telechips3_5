@@ -16,6 +16,8 @@ extern ALLEGRO_BITMAP* icon_people1;
 extern ALLEGRO_BITMAP* icon_people2;
 extern ALLEGRO_BITMAP* icon_people3;
 
+extern ALLEGRO_BITMAP* icon_coffee_bean;
+
 extern ALLEGRO_FONT* font_title;
 extern ALLEGRO_FONT* font_ui;
 
