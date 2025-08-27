@@ -59,10 +59,26 @@ void draw_menu(int W, int H, Rect btn_start, Rect btn_howto, Rect btn_rank,     
         W / 2, H - 80, ALLEGRO_ALIGN_CENTER, "Click the button to start");
 }
 
-void draw_play(int W, int H, int score_second) {                                                                   //게임 플레이 화면에 출력될 문구. 변수 집어넣고 싶으면 textf 함수 사용하기
+void draw_play(int W, int H, int score_second, int selected_item) {                                                                   //게임 플레이 화면에 출력될 문구. 변수 집어넣고 싶으면 textf 함수 사용하기
     draw_bg(bg_play ? bg_play : bg_home, W, H);
     char t[32];
     fmt_time_s(score_second, t, sizeof t);
+
+    const float pad = 35.0f;   // 화면 가장자리 여백
+    const float size = 30.0f;  // 칸 한 변 길이
+    const float gap = 12.0f;   // 칸 사이 간격
+    for (int i = 0; i < 3; ++i) {
+        float x1 = pad + i * (size + gap);
+        float y1 = pad;
+        float x2 = x1 + size;
+        float y2 = y1 + size;
+        al_draw_filled_rectangle(x1, y1, x2, y2, al_map_rgb(60, 60, 60));
+        // 선택 여부에 따른 테두리 색(흰색/노란색)
+        bool picked = (selected_item == (i + 1));
+        ALLEGRO_COLOR outline = picked ? al_map_rgb(255, 215, 0) : al_map_rgb(255, 255, 255);
+        al_draw_rectangle(x1 - 1.5f, y1 - 1.5f, x2 + 1.5f, y2 + 1.5f, outline, 3.0f);
+    }
+
     al_draw_text(font_title, al_map_rgb(255, 255, 255), W / 2, 140, ALLEGRO_ALIGN_CENTER, "GAME SCREEN");
     al_draw_text(font_ui, al_map_rgb(200, 220, 240), W / 2, 260, ALLEGRO_ALIGN_CENTER, "Press SPACEBAR and ENTER for SUCCESS");
     al_draw_textf(font_ui, al_map_rgb(220, 220, 230), W / 2, 200, ALLEGRO_ALIGN_CENTER, "TIME : %s", t);

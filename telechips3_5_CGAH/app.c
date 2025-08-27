@@ -20,6 +20,7 @@ static char name_buf[NAME_MAX] = { 0 };
 static int  name_len = 0;
 static bool end_recorded = false;
 static double play_start_time = 0.0;
+static int selected_item = 0;
 
 static bool point_in_rect(float px, float py, Rect r) {
     return (px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h);
@@ -89,6 +90,7 @@ int app_run(void) {
                     end_recorded = false;
                     name_len = 0; name_buf[0] = '\0';               //닉네임 0으로 초기화
                     play_start_time = al_get_time();                    //플레이 타임 기록 시작
+                    selected_item = 0;
                 }
                 else if (point_in_rect(mx, my, btn_howto)) {    //게임방법 버튼을 누르면
                     g_state = STATE_HOWTO;                          //창 넘어가짐
@@ -101,7 +103,14 @@ int app_run(void) {
             }
         }
         else if (ev.type == ALLEGRO_EVENT_KEY_CHAR) {           //키보드 입력(영어)
-            if (g_state == STATE_END) {                                         //게임 종료 시 (닉네임 입력 코드)
+            if (g_state == STATE_PLAY) {                 // ★ 플레이 중 숫자 '1','2','3','4' 처리
+                int ch = ev.keyboard.unichar;
+                if (ch == '1') selected_item = 1;
+                else if (ch == '2') selected_item = 2;
+                else if (ch == '3') selected_item = 3;
+                else if (ch == '4') selected_item = 0;   // 해제
+            }
+            else if (g_state == STATE_END) {                                         //게임 종료 시 (닉네임 입력 코드)
                 int ch = ev.keyboard.unichar;
                 if (ev.keyboard.keycode == ALLEGRO_KEY_BACKSPACE) {
                     if (name_len > 0) name_buf[--name_len] = '\0';
@@ -131,7 +140,7 @@ int app_run(void) {
                     g_state = STATE_END;
                 }
             }
-            else if (key == ALLEGRO_KEY_BACK) {                         //백스페이스 누르면 실패, 게임 종료 화면으로 넘어감
+            else if (key == ALLEGRO_KEY_BACKSPACE) {                         //백스페이스 누르면 실패, 게임 종료 화면으로 넘어감
                 g_result = RESULT_FAIL;
                 score = (int)(al_get_time() - play_start_time);
                 g_state = STATE_END;
@@ -154,7 +163,8 @@ int app_run(void) {
             switch (g_state) {
             case STATE_MENU:  draw_menu(W, H, btn_start, btn_howto, btn_rank, mx, my); break;
             case STATE_PLAY: {
-                draw_play(W, H, score);           // 실시간 시간 표시
+                int live_sec = (int)(al_get_time() - play_start_time);    // 초 단위로 변환
+                draw_play(W, H, live_sec, selected_item);                 // 선택 상태 전달
                 break;
             }
             case STATE_HOWTO: draw_howto(W, H); break;
