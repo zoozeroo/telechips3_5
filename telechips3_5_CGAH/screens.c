@@ -1,5 +1,6 @@
-// screens.c
+ï»¿// screens.c
 #include <stdio.h>
+#include <allegro5/allegro.h>              // al_get_time
 #include <allegro5/allegro_primitives.h>
 #include <allegro5/allegro_font.h>
 
@@ -8,7 +9,7 @@
 #include "score.h"
 #include "game.h"
 
-// ½Ã°£(ÃÊ) ¡æ "MM:SS"
+// ì‹œê°„(ì´ˆ) â†’ "MM:SS"
 static void fmt_time_s(int sec, char* out, size_t n) {
     if (sec < 0) sec = 0;
     int m = sec / 60;
@@ -62,7 +63,7 @@ void draw_play_with_game(int W, int H, int score_second, int sel_col, int sel_ro
     char t[32]; fmt_time_s(score_second, t, sizeof t);
     GameState gs = game_get_state();
 
-    // ¦¡¦¡ »ó´Ü ½½·Ô(Ä¿ÇÇ 3Á¾) ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡
+    // â”€â”€ ìƒë‹¨ ìŠ¬ë¡¯(ì»¤í”¼ 3ì¢…)
     const float pad = 35.0f;
     const float size = 62.0f;
     const float gap = 18.0f;
@@ -92,7 +93,7 @@ void draw_play_with_game(int W, int H, int score_second, int sel_col, int sel_ro
         ALLEGRO_COLOR o = picked ? al_map_rgb(255, 215, 0) : al_map_rgb(255, 255, 255);
         al_draw_rectangle(x1 - 1.5f, y1 - 1.5f, x2 + 1.5f, y2 + 1.5f, o, 3.0f);
 
-        // ÄÚ½ºÆ® Ç¥½Ã(Äá ¾ÆÀÌÄÜ + ¼ıÀÚ)
+        // ì½”ìŠ¤íŠ¸ í‘œì‹œ(ì½© ì•„ì´ì½˜ + ìˆ«ì)
         if (icon_coffee_bean) {
             float slot_center = x1 + size * 0.5f;
             float bean_y = y2 + 6.0f;
@@ -108,19 +109,19 @@ void draw_play_with_game(int W, int H, int score_second, int sel_col, int sel_ro
         }
     }
 
-    // ¦¡¦¡ ¶óÀÌÇÁ °ÔÀÌÁö(¿ì»ó´Ü) ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡
+    // â”€â”€ ë¼ì´í”„ ê²Œì´ì§€(ìš°ìƒë‹¨)
     int lives = gs.lives;
     if (lives < 0) lives = 0;
     if (lives > 5) lives = 5;
 
     ALLEGRO_BITMAP* life_bmp = NULL;
     switch (lives) {
-    case 5: life_bmp = icon_lifegauge1; break; // 5Ä­
-    case 4: life_bmp = icon_lifegauge2; break; // 4Ä­
-    case 3: life_bmp = icon_lifegauge3; break; // 3Ä­
-    case 2: life_bmp = icon_lifegauge4; break; // 2Ä­
-    case 1: life_bmp = icon_lifegauge5; break; // 1Ä­
-    default: life_bmp = icon_lifegauge6; break; // 0Ä­
+    case 5: life_bmp = icon_lifegauge1; break;
+    case 4: life_bmp = icon_lifegauge2; break;
+    case 3: life_bmp = icon_lifegauge3; break;
+    case 2: life_bmp = icon_lifegauge4; break;
+    case 1: life_bmp = icon_lifegauge5; break;
+    default: life_bmp = icon_lifegauge6; break;
     }
 
     float gx = (float)W - pad;
@@ -128,33 +129,54 @@ void draw_play_with_game(int W, int H, int score_second, int sel_col, int sel_ro
     if (life_bmp) {
         float sw = (float)al_get_bitmap_width(life_bmp);
         float sh = (float)al_get_bitmap_height(life_bmp);
-        float scale = 3.5f;                 // º¸±â ÁÁ°Ô È®´ë
+        float scale = 3.5f;
         float dw = sw * scale, dh = sh * scale;
         al_draw_scaled_bitmap(life_bmp, 0, 0, sw, sh, gx - dw, gy, dw, dh, 0);
     }
     else {
-        // Æú¹é ÅØ½ºÆ®(½ºÇÁ¶óÀÌÆ® ¾øÀ» ¶§¸¸)
         al_draw_textf(font_ui, al_map_rgb(0, 0, 0), gx - 100, gy, 0, "LIVES: %d", gs.lives);
     }
 
-    // ¦¡¦¡ °ÔÀÓ »óÅÂ ÅØ½ºÆ®(¶óÀÌÇÁ ¼ıÀÚ´Â Ç¥½ÃÇÏÁö ¾ÊÀ½) ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡
+    // â”€â”€ ê²Œì„ ìƒíƒœ í…ìŠ¤íŠ¸
     al_draw_textf(font_ui, al_map_rgb(0, 0, 0), 40, 140, 0,
         "TIME: %s | Caffeine: %d", t, gs.caffeine);
     al_draw_textf(font_ui, al_map_rgb(0, 0, 0), 40, 160, 0,
         "Stage %d/%d | Kills: %d/%d",
         gs.stage, MAX_STAGES, gs.stage_kills, KILLS_TO_ADVANCE);
 
-    // Á¶ÀÛ ¾È³»
+    // ì¡°ì‘ ì•ˆë‚´
     al_draw_text(font_ui, al_map_rgb(180, 180, 200), W / 2, H - 100, ALLEGRO_ALIGN_CENTER,
         "WASD: Select Item | Arrow: Move Cursor | Space: Place/Sell | R: Show Ranges");
     al_draw_text(font_ui, al_map_rgb(180, 180, 200), W / 2, H - 80, ALLEGRO_ALIGN_CENTER,
-        "Enter: Force Win | Backspace: Force Lose | ESC: Quit");
+        "Backspace: Pause | Enter: Force Win | ESC: Quit");
 
-    // ¦¡¦¡ ±×¸®µå/À¯´Ö/Àû ±×¸®±â ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡
+    // â”€â”€ ê·¸ë¦¬ë“œ/ìœ ë‹›/ì  ê·¸ë¦¬ê¸°
     game_draw_grid(W, H, sel_col, sel_row, show_ranges);
+
+    // â”€â”€ ìŠ¤í…Œì´ì§€ ì „í™˜ ë°°ë„ˆ(3ì´ˆ) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    if (al_get_time() < gs.stage_msg_until) {
+        // ë°˜íˆ¬ëª… ë°°ê²½
+        al_draw_filled_rectangle(0, 0, W, H, al_map_rgba(0, 0, 0, 140));
+
+        // ì¤‘ì•™ íŒ¨ë„
+        const float pw = 520.0f, ph = 220.0f;
+        float px1 = (W - pw) * 0.5f, py1 = (H - ph) * 0.5f;
+        float px2 = px1 + pw, py2 = py1 + ph;
+
+        al_draw_filled_rounded_rectangle(px1, py1, px2, py2, 14, 14, al_map_rgb(245, 245, 255));
+        al_draw_rounded_rectangle(px1, py1, px2, py2, 14, 14, al_map_rgb(40, 40, 60), 3.0f);
+
+        // íƒ€ì´í‹€: STAGE N
+        char msg[64];
+        snprintf(msg, sizeof msg, "STAGE %d", gs.stage_msg_stage);
+        al_draw_text(font_title, al_map_rgb(20, 20, 40), W / 2, py1 + 48, ALLEGRO_ALIGN_CENTER, msg);
+
+        // ì„œë¸Œ í…ìŠ¤íŠ¸
+        al_draw_text(font_ui, al_map_rgb(80, 80, 100), W / 2, py1 + 110, ALLEGRO_ALIGN_CENTER, "Get Ready...");
+    }
 }
 
-// ±¸ ¹öÀü È£È¯¿ë(»ç¿ëÇÏÁö ¾Ê¾Æµµ µÊ)
+// êµ¬ë²„ì „ í˜¸í™˜
 void draw_play(int W, int H, int score_second, int sel_col, int sel_row, int selected_item, const int marks[GRID_ROWS][GRID_COLS]) {
     draw_play_with_game(W, H, score_second, sel_col, sel_row, selected_item, false);
 }
@@ -202,4 +224,50 @@ void draw_end(int W, int H, const char* name_buf, int score_second, bool success
     snprintf(line, sizeof line, "[ %s_ ]", (name_buf ? name_buf : ""));
     al_draw_text(font_ui, al_map_rgb(200, 230, 255), W / 2, 240, ALLEGRO_ALIGN_CENTER, line);
     al_draw_text(font_ui, al_map_rgb(180, 180, 200), W / 2, 300, ALLEGRO_ALIGN_CENTER, "ESC to quit");
+}
+
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// (ê¸°ì¡´ ì¼ì‹œì •ì§€ ê´€ë ¨ í•¨ìˆ˜ë“¤)
+void pause_get_buttons(int W, int H, Rect* out_resume, Rect* out_menu) {
+    const float pw = 420.0f, ph = 260.0f;
+    float px1 = (W - pw) * 0.5f, py1 = (H - ph) * 0.5f;
+
+    if (out_resume) *out_resume = (Rect){ px1 + 40, py1 + 90,  pw - 80, 50 };
+    if (out_menu)   *out_menu = (Rect){ px1 + 40, py1 + 150, pw - 80, 50 };
+}
+
+void draw_pause_overlay(int W, int H, int selected) {
+    al_draw_filled_rectangle(0, 0, W, H, al_map_rgba(0, 0, 0, 140));
+
+    const float pw = 420.0f, ph = 260.0f;
+    float px1 = (W - pw) * 0.5f, py1 = (H - ph) * 0.5f;
+    float px2 = px1 + pw, py2 = py1 + ph;
+
+    al_draw_filled_rounded_rectangle(px1, py1, px2, py2, 12, 12, al_map_rgb(240, 240, 250));
+    al_draw_rounded_rectangle(px1, py1, px2, py2, 12, 12, al_map_rgb(40, 40, 60), 3.0f);
+
+    al_draw_text(font_title, al_map_rgb(20, 20, 40), (W) / 2, py1 + 22, ALLEGRO_ALIGN_CENTER, "PAUSED");
+
+    Rect btn_resume, btn_menu;
+    pause_get_buttons(W, H, &btn_resume, &btn_menu);
+
+    ALLEGRO_COLOR base = al_map_rgb(60, 60, 80);
+    ALLEGRO_COLOR hi = al_map_rgb(255, 215, 0);
+
+    al_draw_filled_rounded_rectangle(btn_resume.x, btn_resume.y,
+        btn_resume.x + btn_resume.w, btn_resume.y + btn_resume.h, 8, 8, base);
+    al_draw_rounded_rectangle(btn_resume.x, btn_resume.y,
+        btn_resume.x + btn_resume.w, btn_resume.y + btn_resume.h, 8, 8,
+        (selected == 0 ? hi : al_map_rgb(255, 255, 255)), 3.0f);
+    al_draw_text(font_ui, al_map_rgb(255, 255, 255), W / 2, btn_resume.y + 14, ALLEGRO_ALIGN_CENTER, "Resume");
+
+    al_draw_filled_rounded_rectangle(btn_menu.x, btn_menu.y,
+        btn_menu.x + btn_menu.w, btn_menu.y + btn_menu.h, 8, 8, base);
+    al_draw_rounded_rectangle(btn_menu.x, btn_menu.y,
+        btn_menu.x + btn_menu.w, btn_menu.y + btn_menu.h, 8, 8,
+        (selected == 1 ? hi : al_map_rgb(255, 255, 255)), 3.0f);
+    al_draw_text(font_ui, al_map_rgb(255, 255, 255), W / 2, btn_menu.y + 14, ALLEGRO_ALIGN_CENTER, "Back to Menu");
+
+    al_draw_text(font_ui, al_map_rgb(80, 80, 100), W / 2, py2 - 24, ALLEGRO_ALIGN_CENTER,
+        "Mouse: Click  |  Arrow: Select  |  Enter/Space: Confirm  |  Backspace: Resume");
 }

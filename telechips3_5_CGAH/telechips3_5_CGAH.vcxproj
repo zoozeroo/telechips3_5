@@ -137,10 +137,8 @@
     <ClCompile Include="game.c" />
     <ClCompile Include="game.h" />
     <ClCompile Include="main.c" />
-    <ClCompile Include="memo.c" />
     <ClCompile Include="score.c" />
     <ClCompile Include="screens.c" />
-    <ClCompile Include="ngen.c" />
   </ItemGroup>
   <ItemGroup>
     <None Include="explode1.flac" />

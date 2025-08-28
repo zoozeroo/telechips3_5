@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include "app.h"  // GRID_ROWS, GRID_COLS를 위해 app.h 포함
 
+#define STARTING_CAFFEINE 200
 #define MAX_STAGES 5
 #define KILLS_TO_ADVANCE 10
 #define MAX_ENEMIES 50
@@ -44,6 +45,11 @@ typedef struct {
     int stage_kills;
     bool cleared;
     bool game_over;
+
+    // ── 추가: 스테이지 전환 배너(3초) ─────────────────────────
+    // al_get_time() 값과 비교해서 now < stage_msg_until 이면 배너 표시 중
+    double stage_msg_until;   // 배너 종료 시각
+    int    stage_msg_stage;   // 표시할 스테이지 번호 ("STAGE N")
 } GameState;
 
 void game_init(void);

@@ -6,4 +6,8 @@ void draw_play(int W, int H, int score_second, int sel_col, int sel_row, int sel
 void draw_howto(int W, int H);
 void draw_rank(int W, int H);
 void draw_end(int W, int H, const char* name_buf, int score_second, bool success);
+
+// 새로 추가
 void draw_play_with_game(int W, int H, int score_second, int sel_col, int sel_row, int selected_item, bool show_ranges);
+void draw_pause_overlay(int W, int H, int selected);
+void pause_get_buttons(int W, int H, Rect* out_resume, Rect* out_menu);
