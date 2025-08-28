@@ -17,6 +17,11 @@ static Enemy enemies[MAX_ENEMIES];
 static GameState game_state;
 static double last_enemy_spawn_time = 0.0;
 
+static inline bool anim_blink_1s(void) {
+    // al_get_time()는 초 단위 double. 정수초의 홀/짝으로 1초 주기 토글
+    return (((int)al_get_time()) % 2) == 0;
+}
+
 static inline int tower_max_hp(TowerType t) {
     if (t == TOWER_ATTACK) return ATTACK_TOWER_HP;
     if (t == TOWER_RESOURCE) return RESOURCE_TOWER_HP;
@@ -50,7 +55,7 @@ void game_init(void) {
         enemies[i].atk_cooldown = 0.0f;
     }
     game_state.caffeine = 200;
-    game_state.lives = 10;
+    game_state.lives = 5;
     game_state.stage = 1;
     game_state.stage_kills = 0;
     game_state.cleared = false;
@@ -77,6 +82,23 @@ static void spawn_enemy() {
             enemies[i].atk_cooldown = 0.0f;
             break;
         }
+    }
+}
+
+static ALLEGRO_BITMAP* tower_anim_frame(TowerType t) {
+    bool blink = anim_blink_1s();
+    switch (t) {
+    case TOWER_ATTACK:   // A
+        return blink ? (icon_people1 ? icon_people1 : icon_sleeping)
+            : (icon_people1_1 ? icon_people1_1 : icon_people1);
+    case TOWER_RESOURCE: // S
+        return blink ? (icon_people2 ? icon_people2 : icon_sleeping)
+            : (icon_people2_1 ? icon_people2_1 : icon_people2);
+    case TOWER_TANK:     // D
+        return blink ? (icon_people3 ? icon_people3 : icon_sleeping)
+            : (icon_people3_1 ? icon_people3_1 : icon_people3);
+    default:
+        return NULL;
     }
 }
 
@@ -218,10 +240,7 @@ void game_draw_grid(int W, int H, int cursor_col, int cursor_row, bool show_rang
                 float cy = (y1 + y2) * 0.5f;
 
                 // 타워 스프라이트 그리기 (MJ의 에셋 사용)
-                ALLEGRO_BITMAP* tower_sprite = NULL;
-                if (grid[r][c].type == TOWER_ATTACK) tower_sprite = icon_people1;
-                else if (grid[r][c].type == TOWER_RESOURCE) tower_sprite = icon_people2;
-                else if (grid[r][c].type == TOWER_TANK) tower_sprite = icon_people3;
+                ALLEGRO_BITMAP* tower_sprite = tower_anim_frame(grid[r][c].type);
 
                 if (tower_sprite) {
                     float sw = al_get_bitmap_width(tower_sprite);

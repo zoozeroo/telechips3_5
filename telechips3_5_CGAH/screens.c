@@ -1,3 +1,4 @@
+// screens.c
 #include <stdio.h>
 #include <allegro5/allegro_primitives.h>
 #include <allegro5/allegro_font.h>
@@ -7,6 +8,7 @@
 #include "score.h"
 #include "game.h"
 
+// 시간(초) → "MM:SS"
 static void fmt_time_s(int sec, char* out, size_t n) {
     if (sec < 0) sec = 0;
     int m = sec / 60;
@@ -39,18 +41,17 @@ void draw_menu(int W, int H, Rect btn_start, Rect btn_howto, Rect btn_rank, floa
     ALLEGRO_COLOR fill_start = hover_start ? al_map_rgb(153, 217, 234) : al_map_rgb(255, 207, 106);
     ALLEGRO_COLOR fill_howto = hover_howto ? al_map_rgb(153, 217, 234) : al_map_rgb(255, 207, 106);
     ALLEGRO_COLOR fill_rank = hover_rank ? al_map_rgb(153, 217, 234) : al_map_rgb(255, 207, 106);
-    ALLEGRO_COLOR text = al_map_rgb(255, 255, 255);
 
-    al_draw_text(font_title, al_map_rgb(20, 20, 20), W / 2, 120, ALLEGRO_ALIGN_CENTER, "CLASS 7 : Sleeping Defence");
+    al_draw_text(font_title, al_map_rgb(20, 20, 20), W / 2, 150, ALLEGRO_ALIGN_CENTER, "CLASS 7 : Sleeping Defence");
 
     al_draw_filled_rounded_rectangle(btn_start.x, btn_start.y, btn_start.x + btn_start.w, btn_start.y + btn_start.h, 6, 6, fill_start);
-    al_draw_text(font_ui, text, W / 2, btn_start.y + 15, ALLEGRO_ALIGN_CENTER, "START GAME");
+    al_draw_text(font_ui, al_map_rgb(255, 255, 255), W / 2, btn_start.y + 15, ALLEGRO_ALIGN_CENTER, "START GAME");
 
     al_draw_filled_rounded_rectangle(btn_howto.x, btn_howto.y, btn_howto.x + btn_howto.w, btn_howto.y + btn_howto.h, 6, 6, fill_howto);
-    al_draw_text(font_ui, text, W / 2, btn_howto.y + 15, ALLEGRO_ALIGN_CENTER, "HOW TO PLAY");
+    al_draw_text(font_ui, al_map_rgb(255, 255, 255), W / 2, btn_howto.y + 15, ALLEGRO_ALIGN_CENTER, "HOW TO PLAY");
 
     al_draw_filled_rounded_rectangle(btn_rank.x, btn_rank.y, btn_rank.x + btn_rank.w, btn_rank.y + btn_rank.h, 6, 6, fill_rank);
-    al_draw_text(font_ui, text, W / 2, btn_rank.y + 15, ALLEGRO_ALIGN_CENTER, "RANKING");
+    al_draw_text(font_ui, al_map_rgb(255, 255, 255), W / 2, btn_rank.y + 15, ALLEGRO_ALIGN_CENTER, "RANKING");
 
     al_draw_text(font_ui, al_map_rgb(220, 220, 230), W / 2, H - 80, ALLEGRO_ALIGN_CENTER, "Click the button to start");
 }
@@ -61,7 +62,7 @@ void draw_play_with_game(int W, int H, int score_second, int sel_col, int sel_ro
     char t[32]; fmt_time_s(score_second, t, sizeof t);
     GameState gs = game_get_state();
 
-    // 상단 UI 슬롯 그리기
+    // ── 상단 슬롯(커피 3종) ─────────────────────────────────────
     const float pad = 35.0f;
     const float size = 62.0f;
     const float gap = 18.0f;
@@ -91,6 +92,7 @@ void draw_play_with_game(int W, int H, int score_second, int sel_col, int sel_ro
         ALLEGRO_COLOR o = picked ? al_map_rgb(255, 215, 0) : al_map_rgb(255, 255, 255);
         al_draw_rectangle(x1 - 1.5f, y1 - 1.5f, x2 + 1.5f, y2 + 1.5f, o, 3.0f);
 
+        // 코스트 표시(콩 아이콘 + 숫자)
         if (icon_coffee_bean) {
             float slot_center = x1 + size * 0.5f;
             float bean_y = y2 + 6.0f;
@@ -106,47 +108,80 @@ void draw_play_with_game(int W, int H, int score_second, int sel_col, int sel_ro
         }
     }
 
-    // 게임 상태 UI
-    al_draw_text(font_title, al_map_rgb(255, 255, 255), W / 2, 140, ALLEGRO_ALIGN_CENTER, "SLEEPING DEFENCE");
-    al_draw_textf(font_ui, al_map_rgb(0, 0, 0), 40, 140, 0, "TIME: %s | Caffeine: %d | Lives: %d", t, gs.caffeine, gs.lives);
-    al_draw_textf(font_ui, al_map_rgb(0, 0, 0), 40, 160, 0, "Stage %d/%d | Kills: %d/%d", gs.stage, MAX_STAGES, gs.stage_kills, KILLS_TO_ADVANCE);
+    // ── 라이프 게이지(우상단) ───────────────────────────────────
+    int lives = gs.lives;
+    if (lives < 0) lives = 0;
+    if (lives > 5) lives = 5;
 
-    // 조작법 안내
-    al_draw_text(font_ui, al_map_rgb(180, 180, 200), W / 2, H - 100, ALLEGRO_ALIGN_CENTER, "WASD: Select Item | Arrow: Move Cursor | Space: Place/Sell | R: Show Ranges");
-    al_draw_text(font_ui, al_map_rgb(180, 180, 200), W / 2, H - 80, ALLEGRO_ALIGN_CENTER, "Enter: Force Win | Backspace: Force Lose | ESC: Quit");
+    ALLEGRO_BITMAP* life_bmp = NULL;
+    switch (lives) {
+    case 5: life_bmp = icon_lifegauge1; break; // 5칸
+    case 4: life_bmp = icon_lifegauge2; break; // 4칸
+    case 3: life_bmp = icon_lifegauge3; break; // 3칸
+    case 2: life_bmp = icon_lifegauge4; break; // 2칸
+    case 1: life_bmp = icon_lifegauge5; break; // 1칸
+    default: life_bmp = icon_lifegauge6; break; // 0칸
+    }
 
-    // 게임 그리드 그리기
+    float gx = (float)W - pad;
+    float gy = pad + 8.0f;
+    if (life_bmp) {
+        float sw = (float)al_get_bitmap_width(life_bmp);
+        float sh = (float)al_get_bitmap_height(life_bmp);
+        float scale = 3.5f;                 // 보기 좋게 확대
+        float dw = sw * scale, dh = sh * scale;
+        al_draw_scaled_bitmap(life_bmp, 0, 0, sw, sh, gx - dw, gy, dw, dh, 0);
+    }
+    else {
+        // 폴백 텍스트(스프라이트 없을 때만)
+        al_draw_textf(font_ui, al_map_rgb(0, 0, 0), gx - 100, gy, 0, "LIVES: %d", gs.lives);
+    }
+
+    // ── 게임 상태 텍스트(라이프 숫자는 표시하지 않음) ───────────
+    al_draw_textf(font_ui, al_map_rgb(0, 0, 0), 40, 140, 0,
+        "TIME: %s | Caffeine: %d", t, gs.caffeine);
+    al_draw_textf(font_ui, al_map_rgb(0, 0, 0), 40, 160, 0,
+        "Stage %d/%d | Kills: %d/%d",
+        gs.stage, MAX_STAGES, gs.stage_kills, KILLS_TO_ADVANCE);
+
+    // 조작 안내
+    al_draw_text(font_ui, al_map_rgb(180, 180, 200), W / 2, H - 100, ALLEGRO_ALIGN_CENTER,
+        "WASD: Select Item | Arrow: Move Cursor | Space: Place/Sell | R: Show Ranges");
+    al_draw_text(font_ui, al_map_rgb(180, 180, 200), W / 2, H - 80, ALLEGRO_ALIGN_CENTER,
+        "Enter: Force Win | Backspace: Force Lose | ESC: Quit");
+
+    // ── 그리드/유닛/적 그리기 ───────────────────────────────────
     game_draw_grid(W, H, sel_col, sel_row, show_ranges);
 }
 
+// 구 버전 호환용(사용하지 않아도 됨)
 void draw_play(int W, int H, int score_second, int sel_col, int sel_row, int selected_item, const int marks[GRID_ROWS][GRID_COLS]) {
-    // 호환성을 위한 래퍼 함수 - 실제로는 새로운 게임 로직 사용
     draw_play_with_game(W, H, score_second, sel_col, sel_row, selected_item, false);
 }
 
 void draw_howto(int W, int H) {
     draw_bg(bg_play, W, H);
-    al_draw_text(font_title, al_map_rgb(255, 255, 255), W / 2, 120, ALLEGRO_ALIGN_CENTER, "HOW TO PLAY");
+    al_draw_text(font_title, al_map_rgb(20, 20, 20), W / 2, 150, ALLEGRO_ALIGN_CENTER, "HOW TO PLAY");
 
-    al_draw_text(font_ui, al_map_rgb(200, 220, 240), W / 2, 180, ALLEGRO_ALIGN_CENTER, "Defend against sleeping students!");
-    al_draw_text(font_ui, al_map_rgb(200, 220, 240), W / 2, 210, ALLEGRO_ALIGN_CENTER, "Place coffee towers to wake them up");
-    al_draw_text(font_ui, al_map_rgb(200, 220, 240), W / 2, 240, ALLEGRO_ALIGN_CENTER, "Resource towers generate caffeine");
-    al_draw_text(font_ui, al_map_rgb(200, 220, 240), W / 2, 270, ALLEGRO_ALIGN_CENTER, "Tank towers absorb damage");
-    al_draw_text(font_ui, al_map_rgb(200, 220, 240), W / 2, 300, ALLEGRO_ALIGN_CENTER, "Survive all 5 stages to win!");
+    al_draw_text(font_ui, al_map_rgb(200, 220, 240), W / 2, 210, ALLEGRO_ALIGN_CENTER, "Defend against sleeping students!");
+    al_draw_text(font_ui, al_map_rgb(200, 220, 240), W / 2, 240, ALLEGRO_ALIGN_CENTER, "Place coffee towers to wake them up");
+    al_draw_text(font_ui, al_map_rgb(200, 220, 240), W / 2, 270, ALLEGRO_ALIGN_CENTER, "Resource towers generate caffeine");
+    al_draw_text(font_ui, al_map_rgb(200, 220, 240), W / 2, 300, ALLEGRO_ALIGN_CENTER, "Tank towers absorb damage");
+    al_draw_text(font_ui, al_map_rgb(200, 220, 240), W / 2, 330, ALLEGRO_ALIGN_CENTER, "Survive all 5 stages to win!");
 
     al_draw_text(font_ui, al_map_rgb(220, 220, 230), W / 2, H - 80, ALLEGRO_ALIGN_CENTER, "back to menu : SPACE BAR");
 }
 
 void draw_rank(int W, int H) {
     draw_bg(bg_rank ? bg_rank : bg_play, W, H);
-    al_draw_text(font_title, al_map_rgb(20, 20, 20), W / 2, 120, ALLEGRO_ALIGN_CENTER, "RANKING");
+    al_draw_text(font_title, al_map_rgb(20, 20, 20), W / 2, 150, ALLEGRO_ALIGN_CENTER, "RANKING");
 
     int view = score_count_get(); if (view > 10) view = 10;
     for (int i = 0; i < view; ++i) {
         Entry e = score_get(i);
         char t[32]; fmt_time_s(e.score, t, sizeof t);
         al_draw_textf(font_ui, al_map_rgb(255, 255, 255),
-            W / 2, 140 + (i + 1) * 30, ALLEGRO_ALIGN_CENTER,
+            W / 2, 190 + (i + 1) * 30, ALLEGRO_ALIGN_CENTER,
             "%d. %s : %s", i + 1, e.name, t);
     }
     al_draw_text(font_ui, al_map_rgb(220, 220, 230), W / 2, H - 55, ALLEGRO_ALIGN_CENTER, "back to menu : SPACE BAR");
