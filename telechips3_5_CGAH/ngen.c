@@ -1,8 +1,4 @@
-﻿// Allegro 5 C 예제 — 타워 디펜스 기능 확장
-// 공격/자원 타워, 적 유닛, 게임 상태 추가
-// 수정: 적이 오른쪽에서 무작위로 등장하여 왼쪽으로 이동하도록 변경
-
-#include <stdio.h>
+﻿#include <stdio.h>
 #include <stdbool.h>
 #include <math.h>
 #include <stdlib.h> // rand(), srand() 사용
@@ -12,9 +8,8 @@
 #include <allegro5/allegro_image.h>
 #include <allegro5/allegro_primitives.h>
 #include <allegro5/allegro_font.h>
-//#include <allegro5/allegro_ttf.h>
 
-
+//필드
 #define BUFFER_W 320
 #define BUFFER_H 240
 
@@ -29,13 +24,10 @@
 #define GRID_X 7
 #define GRID_Y 64
 
-//스테이지 기준
-#define MAX_STAGES 5
-#define KILLS_TO_ADVANCE 10
-
+//적 기본특성
 #define MAX_ENEMIES 50
 #define ENEMY_HP 100
-#define ENEMY_SPEED 0.1f // 적 이동 속도
+#define ENEMY_SPEED 0.5f
 
 // 타워 가격
 #define ATTACK_TOWER_COST 100
@@ -44,8 +36,8 @@
 
 // 타워 특성
 #define ATTACK_TOWER_RANGE 50.0f // 타워 공격 범위
-#define ATTACK_TOWER_DAMAGE 5   // 타워 공격력
-#define ATTACK_TOWER_COOLDOWN 0.1f // 공격 쿨다운 (초)
+#define ATTACK_TOWER_DAMAGE 10   // 타워 공격력
+#define ATTACK_TOWER_COOLDOWN 0.5f // 공격 쿨다운 (초)
 #define RESOURCE_TOWER_AMOUNT 5
 #define RESOURCE_TOWER_COOLDOWN 1.0f // 자원 생성 쿨다운 (초)
 #define ATTACK_TOWER_HP        200 // ===== Tower HP =====
@@ -56,6 +48,13 @@
 #define ENEMY_ATTACK_RANGE     18.0f   // 근접 사정거리(픽셀)
 #define ENEMY_ATTACK_DAMAGE    10      // 타워에 주는 피해
 #define ENEMY_ATTACK_COOLDOWN  0.5f    // 공격 쿨다운(초)
+
+//스테이지 기준
+#define MAX_STAGES 5
+
+static const int    KILLS_REQ[MAX_STAGES + 1] = { 0,  10, 20, 30, 40, 50 };  // 스테이지별 클리어 필요 처치수
+static const double SPAWN_INTERVAL[MAX_STAGES + 1] = { 0,  5.0, 4.0, 3.0, 2.0, 1.0 }; // 스테이지별 스폰 간격(초)
+static const int    SPAWN_BATCH[MAX_STAGES + 1] = { 0,  1,   1,   1,   2,   3 }; // 한 번에 스폰할 적 수
 
 // 타워 종류
 typedef enum {
@@ -114,6 +113,7 @@ void spawn_enemy();
 void reset_all_enemies(void);
 void on_enemy_killed(void);
 void advance_stage(void);
+void spawn_enemies(int count);
 
 //타워 최대 HP
 static inline int tower_max_hp(TowerType t) {
@@ -131,7 +131,24 @@ static void cell_rect(int row, int col, float* x1, float* y1, float* x2, float* 
 	*y2 = *y1 + CELL_H;
 }
 
-// 두 점 사이의 거리를 계산 (피타고라스 정리)
+//스테이지 헬퍼
+static inline int get_kills_to_advance(int stage) {
+	if (stage < 1) stage = 1;
+	if (stage > MAX_STAGES) stage = MAX_STAGES;
+	return KILLS_REQ[stage];
+}
+static inline double get_spawn_interval(int stage) {
+	if (stage < 1) stage = 1;
+	if (stage > MAX_STAGES) stage = MAX_STAGES;
+	return SPAWN_INTERVAL[stage];
+}
+static inline int get_spawn_batch(int stage) {
+	if (stage < 1) stage = 1;
+	if (stage > MAX_STAGES) stage = MAX_STAGES;
+	return SPAWN_BATCH[stage];
+}
+
+// 두 점 사이의 거리를 계산
 float distance(float x1, float y1, float x2, float y2) {
 	return sqrt(pow(x2 - x1, 2) + pow(y2 - y1, 2));
 }
@@ -202,7 +219,7 @@ void spawn_enemy() {
 }
 void on_enemy_killed(void) {
 	game_state.stage_kills++;
-	if (game_state.stage_kills >= KILLS_TO_ADVANCE) {
+	if (game_state.stage_kills >= get_kills_to_advance(game_state.stage)) {
 		advance_stage();
 	}
 }
@@ -416,7 +433,7 @@ void draw_game(ALLEGRO_BITMAP* background) {
 	// UI 그리기
 	al_draw_textf(game_font, al_map_rgb(0, 0, 0), 10, 10, 0, "Caffeine: %d", game_state.caffeine);
 	al_draw_textf(game_font, al_map_rgb(0, 0, 0), 10, 20, 0, "LIVES: %d", game_state.lives);
-	al_draw_textf(game_font, al_map_rgb(0, 0, 0), 10, 30, 0, "Stage %d/%d  Kills %d/%d", game_state.stage, MAX_STAGES, game_state.stage_kills, KILLS_TO_ADVANCE);
+	al_draw_textf(game_font, al_map_rgb(0, 0, 0), 10, 30, 0, "Stage %d/%d  Kills %d/%d", game_state.stage, MAX_STAGES, game_state.stage_kills, get_kills_to_advance(game_state.stage));
 }
 
 // 타워 설치
@@ -471,6 +488,12 @@ void disp_post_draw() {
 	// 버퍼를 디스플레이 크기에 맞게 확대하여 그림
 	al_draw_scaled_bitmap(buffer, 0, 0, BUFFER_W, BUFFER_H, 0, 0, al_get_display_width(disp), al_get_display_height(disp), 0);
 	al_flip_display();
+}
+
+void spawn_enemies(int count) {
+	for (int n = 0; n < count; ++n) {
+		spawn_enemy(); // 기존 1마리 스폰 함수를 여러 번 호출
+	}
 }
 
 int main(void) {
@@ -542,12 +565,16 @@ int main(void) {
 		case ALLEGRO_EVENT_TIMER:
 			update_game(al_get_timer_speed(timer));
 
-			// 적 생성 주기
+			// 스테이지별 간격/배치로 스폰 (클리어 상태 아니고, 아직 필요한 처치수를 못 채운 동안만)
 			if (!game_state.cleared &&
-				game_state.stage_kills < KILLS_TO_ADVANCE &&
-				(al_get_time() - last_enemy_spawn_time > 1.0)) {
-				spawn_enemy();
-				last_enemy_spawn_time = al_get_time();
+				game_state.stage_kills < get_kills_to_advance(game_state.stage)) {
+
+				double interval = get_spawn_interval(game_state.stage);
+				if (al_get_time() - last_enemy_spawn_time > interval) {
+					int batch = get_spawn_batch(game_state.stage);
+					spawn_enemies(batch);
+					last_enemy_spawn_time = al_get_time();
+				}
 			}
 
 			redraw = true;
