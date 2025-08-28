@@ -39,7 +39,7 @@ int app_run(void) {
     al_init_primitives_addon();
     if (!al_init_image_addon()) return 1;
 
-    const int W = 800, H = 600;
+    const int W = 960, H = 720; // 게임창 크기
     ALLEGRO_DISPLAY* disp = al_create_display(W, H);
     if (!disp) return 1;
 

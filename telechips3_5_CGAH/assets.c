@@ -16,6 +16,10 @@ ALLEGRO_BITMAP* icon_sleeping = NULL;
 ALLEGRO_BITMAP* icon_people1 = NULL;
 ALLEGRO_BITMAP* icon_people2 = NULL;
 ALLEGRO_BITMAP* icon_people3 = NULL;
+ALLEGRO_BITMAP* icon_virus1 = NULL;
+ALLEGRO_BITMAP* icon_virus2 = NULL;
+ALLEGRO_BITMAP* icon_virus3 = NULL;
+ALLEGRO_BITMAP* icon_virus4 = NULL;
 ALLEGRO_BITMAP* icon_coffee_bean = NULL;
 
 bool assets_load(void) {
@@ -37,6 +41,10 @@ bool assets_load(void) {
     const int P1Y = 39, P1WH = 34;
     const int P2Y = 75;
     const int P3Y = 110;
+    const int V1X = 7, V1Y = 2;
+    const int V2Y = 39;
+    const int V3Y = 76;
+    const int V4Y = 113;
     const int BEAN_X = 10, BEAN_Y = 179, BEAN_W = 17, BEAN_H = 18;
 
     icon_coffee_1 = al_create_sub_bitmap(spr_items, C1X, C1Y, CWH, CWH);
@@ -46,6 +54,13 @@ bool assets_load(void) {
     icon_people1 = al_create_sub_bitmap(spr_items, P0X, P1Y, P1WH, P1WH);
     icon_people2 = al_create_sub_bitmap(spr_items, P0X, P2Y, P1WH, P1WH);
     icon_people3 = al_create_sub_bitmap(spr_items, P0X, P3Y, P1WH, P1WH);
+
+    icon_virus1 = al_create_sub_bitmap(spr_items, V1X, V1Y, P1WH, P1WH); // ÆÄ
+    icon_virus2 = al_create_sub_bitmap(spr_items, V1X, V2Y, P1WH, P1WH); // ³ë
+    icon_virus3 = al_create_sub_bitmap(spr_items, V1X, V3Y, P1WH, P1WH); // »¡
+    icon_virus4 = al_create_sub_bitmap(spr_items, V1X, V4Y, P1WH, P1WH); // ÇÏ
+
+
     icon_coffee_bean = al_create_sub_bitmap(spr_items, BEAN_X, BEAN_Y, BEAN_W, BEAN_H);
 
     return true;
@@ -59,6 +74,10 @@ void assets_unload(void) {
     if (icon_people2) al_destroy_bitmap(icon_people2);
     if (icon_people3) al_destroy_bitmap(icon_people3);
     if (icon_sleeping) al_destroy_bitmap(icon_sleeping);
+    if (icon_virus1) al_destroy_bitmap(icon_virus1);
+    if (icon_virus2) al_destroy_bitmap(icon_virus2);
+    if (icon_virus3) al_destroy_bitmap(icon_virus3);
+    if (icon_virus4) al_destroy_bitmap(icon_virus4);
     if (icon_coffee_bean) al_destroy_bitmap(icon_coffee_bean);
     if (spr_items) al_destroy_bitmap(spr_items);
 
@@ -71,6 +90,7 @@ void assets_unload(void) {
     spr_items = bg_home = bg_rank = bg_play = NULL;
     icon_coffee_1 = icon_coffee_2 = icon_coffee_3 = NULL;
     icon_sleeping = icon_people1 = icon_people2 = icon_people3 = NULL;
+    icon_virus1 = icon_virus2 = icon_virus3 = icon_virus4 = NULL;
     icon_coffee_bean = NULL;
     font_title = font_ui = NULL;
 }

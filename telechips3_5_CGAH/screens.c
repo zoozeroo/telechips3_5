@@ -108,8 +108,8 @@ void draw_play_with_game(int W, int H, int score_second, int sel_col, int sel_ro
 
     // 게임 상태 UI
     al_draw_text(font_title, al_map_rgb(255, 255, 255), W / 2, 140, ALLEGRO_ALIGN_CENTER, "SLEEPING DEFENCE");
-    al_draw_textf(font_ui, al_map_rgb(220, 220, 230), 10, 160, 0, "TIME: %s | Caffeine: %d | Lives: %d", t, gs.caffeine, gs.lives);
-    al_draw_textf(font_ui, al_map_rgb(200, 220, 240), 10, 180, 0, "Stage %d/%d | Kills: %d/%d", gs.stage, MAX_STAGES, gs.stage_kills, KILLS_TO_ADVANCE);
+    al_draw_textf(font_ui, al_map_rgb(0, 0, 0), 40, 140, 0, "TIME: %s | Caffeine: %d | Lives: %d", t, gs.caffeine, gs.lives);
+    al_draw_textf(font_ui, al_map_rgb(0, 0, 0), 40, 160, 0, "Stage %d/%d | Kills: %d/%d", gs.stage, MAX_STAGES, gs.stage_kills, KILLS_TO_ADVANCE);
 
     // 조작법 안내
     al_draw_text(font_ui, al_map_rgb(180, 180, 200), W / 2, H - 100, ALLEGRO_ALIGN_CENTER, "WASD: Select Item | Arrow: Move Cursor | Space: Place/Sell | R: Show Ranges");

@@ -15,6 +15,10 @@ extern ALLEGRO_BITMAP* icon_sleeping;
 extern ALLEGRO_BITMAP* icon_people1;
 extern ALLEGRO_BITMAP* icon_people2;
 extern ALLEGRO_BITMAP* icon_people3;
+extern ALLEGRO_BITMAP* icon_virus1;
+extern ALLEGRO_BITMAP* icon_virus2;
+extern ALLEGRO_BITMAP* icon_virus3;
+extern ALLEGRO_BITMAP* icon_virus4;
 extern ALLEGRO_BITMAP* icon_coffee_bean;
 
 bool assets_load(void);

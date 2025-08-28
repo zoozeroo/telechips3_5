@@ -7,10 +7,10 @@
 #include <allegro5/allegro_primitives.h>
 
 // 그리드 레이아웃
-#define CELL_W 80
-#define CELL_H 67
-#define GRID_X 280
-#define GRID_Y 240
+#define CELL_W 102
+#define CELL_H 102
+#define GRID_X 21    //바둑판 시작 위치 7,62
+#define GRID_Y 186
 
 static Tower grid[GRID_ROWS][GRID_COLS];
 static Enemy enemies[MAX_ENEMIES];
@@ -249,13 +249,13 @@ void game_draw_grid(int W, int H, int cursor_col, int cursor_row, bool show_rang
     // 적 그리기
     for (int i = 0; i < MAX_ENEMIES; ++i) {
         if (enemies[i].active) {
-            // 적 스프라이트 (졸고 있는 학생)
-            if (icon_sleeping) {
-                float sw = al_get_bitmap_width(icon_sleeping);
-                float sh = al_get_bitmap_height(icon_sleeping);
-                float scale = 0.8f;
+            // 적 스프라이트 (파랑 바이러스)
+            if (icon_virus1) {
+                float sw = al_get_bitmap_width(icon_virus1);
+                float sh = al_get_bitmap_height(icon_virus1);
+                float scale = 2.0f; // 적 크기
                 float dw = sw * scale, dh = sh * scale;
-                al_draw_scaled_bitmap(icon_sleeping, 0, 0, sw, sh,
+                al_draw_scaled_bitmap(icon_virus1, 0, 0, sw, sh,
                     enemies[i].x - dw / 2, enemies[i].y - dh / 2, dw, dh, 0);
             }
             else {
