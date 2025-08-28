@@ -16,6 +16,7 @@ static Tower grid[GRID_ROWS][GRID_COLS];
 static Enemy enemies[MAX_ENEMIES];
 static GameState game_state;
 static double last_enemy_spawn_time = 0.0;
+static Bullet bullets[MAX_BULLETS];
 
 static inline int tower_max_hp(TowerType t) {
     if (t == TOWER_ATTACK) return ATTACK_TOWER_HP;
@@ -49,6 +50,10 @@ void game_init(void) {
         enemies[i].active = false;
         enemies[i].atk_cooldown = 0.0f;
     }
+    // 총알 초기화
+    for (int i = 0; i < MAX_BULLETS; ++i) {
+        bullets[i].active = false;
+    }
     game_state.caffeine = 200;
     game_state.lives = 10;
     game_state.stage = 1;
@@ -62,6 +67,10 @@ void game_init(void) {
 void game_reset(void) {
     for (int i = 0; i < MAX_ENEMIES; ++i) {
         enemies[i].active = false;
+    }
+    // 총알 리셋
+    for (int i = 0; i < MAX_BULLETS; ++i) {
+        bullets[i].active = false;
     }
     game_state.game_over = false;
     game_state.cleared = false;
@@ -99,6 +108,40 @@ static void on_enemy_killed(void) {
     }
 }
 
+// 총알 생성 함수
+static int spawn_bullet(float sx, float sy, int enemy_index) {
+    if (enemy_index < 0 || enemy_index >= MAX_ENEMIES || !enemies[enemy_index].active)
+        return -1;
+
+    float tx = enemies[enemy_index].x, ty = enemies[enemy_index].y;
+    float dx = tx - sx, dy = ty - sy;
+    float len = sqrtf(dx * dx + dy * dy);
+    if (len < 1e-4f) { dx = 1.0f; dy = 0.0f; len = 1.0f; }
+    dx /= len; dy /= len;
+
+    for (int i = 0; i < MAX_BULLETS; ++i) {
+        if (!bullets[i].active) {
+            bullets[i].active = true;
+            bullets[i].x = sx;
+            bullets[i].y = sy;
+            bullets[i].vx = dx * BULLET_SPEED;
+            bullets[i].vy = dy * BULLET_SPEED;
+            bullets[i].image_type = rand() % 3; // 0, 1, 2 중 랜덤 선택
+            return i;
+        }
+    }
+    return -1;
+}
+
+// 원과 사각형 충돌 검사
+static bool circle_rect_overlap(float cx, float cy, float r,
+    float rx1, float ry1, float rx2, float ry2) {
+    float nnx = (cx < rx1) ? rx1 : (cx > rx2) ? rx2 : cx;
+    float nny = (cy < ry1) ? ry1 : (cy > ry2) ? ry2 : cy;
+    float dx = cx - nnx, dy = cy - nny;
+    return (dx * dx + dy * dy) <= r * r;
+}
+
 void game_update(float dt) {
     if (game_state.cleared || game_state.game_over) return;
 
@@ -114,6 +157,7 @@ void game_update(float dt) {
 
             if (grid[r][c].type == TOWER_ATTACK && grid[r][c].cooldown <= 0) {
                 Enemy* target = NULL;
+                int target_index = -1;  // 인덱스 추가
                 float min_dist = ATTACK_TOWER_RANGE;
 
                 for (int i = 0; i < MAX_ENEMIES; ++i) {
@@ -122,17 +166,14 @@ void game_update(float dt) {
                         if (d < min_dist) {
                             min_dist = d;
                             target = &enemies[i];
+                            target_index = i;  // 인덱스 저장
                         }
                     }
                 }
 
                 if (target) {
-                    target->hp -= ATTACK_TOWER_DAMAGE;
-                    if (target->hp <= 0) {
-                        target->active = false;
-                        game_state.caffeine += 20;
-                        on_enemy_killed();
-                    }
+                    //target->hp -= ATTACK_TOWER_DAMAGE; // 즉시 피해알 적용 방식 (총알 x)
+                    spawn_bullet(tower_cx, tower_cy, target_index); // 총알 발사 방식
                     grid[r][c].cooldown = ATTACK_TOWER_COOLDOWN;
                 }
             }
@@ -200,6 +241,42 @@ void game_update(float dt) {
         (al_get_time() - last_enemy_spawn_time > 2.0)) {
         spawn_enemy();
         last_enemy_spawn_time = al_get_time();
+    }
+
+    // 총알 업데이트
+    for (int i = 0; i < MAX_BULLETS; ++i) {
+        Bullet* b = &bullets[i];
+        if (!b->active) continue;
+
+        b->x += b->vx * dt;
+        b->y += b->vy * dt;
+
+        // 화면 밖으로 나가면 제거 (게임 그리드 영역 기준)
+        float grid_right = GRID_X + GRID_COLS * CELL_W + 50;
+        float grid_bottom = GRID_Y + GRID_ROWS * CELL_H + 50;
+
+        if (b->x < -20 || b->x > grid_right || b->y < -20 || b->y > grid_bottom) {
+            b->active = false;
+            continue;
+        }
+
+        // 적과 충돌 검사
+        for (int e = 0; e < MAX_ENEMIES; ++e) {
+            if (!enemies[e].active) continue;
+            float ex = enemies[e].x, ey = enemies[e].y;
+
+            if (circle_rect_overlap(b->x, b->y, BULLET_RADIUS,
+                ex - 8, ey - 8, ex + 8, ey + 8)) {
+                enemies[e].hp -= ATTACK_TOWER_DAMAGE;
+                if (enemies[e].hp <= 0) {
+                    enemies[e].active = false;
+                    game_state.caffeine += 20; // 기존 보상 시스템 유지
+                    on_enemy_killed(); // 기존 킬 카운트 함수 호출
+                }
+                b->active = false;
+                break;
+            }
+        }
     }
 }
 
@@ -306,6 +383,32 @@ void game_draw_grid(int W, int H, int cursor_col, int cursor_row, bool show_rang
         float cx1, cy1, cx2, cy2;
         cell_rect(cursor_row, cursor_col, &cx1, &cy1, &cx2, &cy2);
         al_draw_rectangle(cx1 + 2, cy1 + 2, cx2 - 2, cy2 - 2, al_map_rgb(255, 255, 0), 3.0f);
+    }
+
+    // 총알 그리기
+    for (int i = 0; i < MAX_BULLETS; ++i) {
+        if (!bullets[i].active) continue;
+
+        ALLEGRO_BITMAP* bullet_img = NULL;
+        switch (bullets[i].image_type) {
+        case 0: bullet_img = bullet_1; break;
+        case 1: bullet_img = bullet_2; break;
+        case 2: bullet_img = bullet_3; break;
+        }
+
+        if (bullet_img) {
+            float img_w = (float)al_get_bitmap_width(bullet_img);
+            float img_h = (float)al_get_bitmap_height(bullet_img);
+            float draw_x = bullets[i].x - img_w / 2;
+            float draw_y = bullets[i].y - img_h / 2;
+
+            al_draw_bitmap(bullet_img, draw_x, draw_y, 0);
+        }
+        else {
+            // 이미지가 없을 경우 폴백: 기본 원
+            al_draw_filled_circle(bullets[i].x, bullets[i].y, BULLET_RADIUS,
+                al_map_rgb(255, 255, 255));
+        }
     }
 }
 

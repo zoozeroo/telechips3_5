@@ -20,6 +20,9 @@ extern ALLEGRO_BITMAP* icon_virus2;
 extern ALLEGRO_BITMAP* icon_virus3;
 extern ALLEGRO_BITMAP* icon_virus4;
 extern ALLEGRO_BITMAP* icon_coffee_bean;
+extern ALLEGRO_BITMAP* bullet_1;
+extern ALLEGRO_BITMAP* bullet_2;
+extern ALLEGRO_BITMAP* bullet_3;
 
 bool assets_load(void);
 void assets_unload(void);

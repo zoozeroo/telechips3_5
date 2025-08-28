@@ -21,6 +21,10 @@ ALLEGRO_BITMAP* icon_virus2 = NULL;
 ALLEGRO_BITMAP* icon_virus3 = NULL;
 ALLEGRO_BITMAP* icon_virus4 = NULL;
 ALLEGRO_BITMAP* icon_coffee_bean = NULL;
+ALLEGRO_BITMAP* bullet_1 = NULL;
+ALLEGRO_BITMAP* bullet_2 = NULL;
+ALLEGRO_BITMAP* bullet_3 = NULL;
+
 
 bool assets_load(void) {
     font_title = al_create_builtin_font();
@@ -46,6 +50,8 @@ bool assets_load(void) {
     const int V3Y = 76;
     const int V4Y = 113;
     const int BEAN_X = 10, BEAN_Y = 179, BEAN_W = 17, BEAN_H = 18;
+    const int BW = 9, BH = 9;
+    const int B1X = 32, B2X = 44, B3X = 56, BY = 185;
 
     icon_coffee_1 = al_create_sub_bitmap(spr_items, C1X, C1Y, CWH, CWH);
     icon_coffee_2 = al_create_sub_bitmap(spr_items, C2X, C2Y, CWH, CWH);
@@ -59,13 +65,22 @@ bool assets_load(void) {
     icon_virus2 = al_create_sub_bitmap(spr_items, V1X, V2Y, P1WH, P1WH); // 노
     icon_virus3 = al_create_sub_bitmap(spr_items, V1X, V3Y, P1WH, P1WH); // 빨
     icon_virus4 = al_create_sub_bitmap(spr_items, V1X, V4Y, P1WH, P1WH); // 하
-
-
+    
     icon_coffee_bean = al_create_sub_bitmap(spr_items, BEAN_X, BEAN_Y, BEAN_W, BEAN_H);
+    
+    bullet_1 = al_create_sub_bitmap(spr_items, B1X, BY, BW, BH);
+    bullet_2 = al_create_sub_bitmap(spr_items, B2X, BY, BW, BH);
+    bullet_3 = al_create_sub_bitmap(spr_items, B3X, BY, BW, BH);
+
+
+    
+
+    if (!bullet_1 || !bullet_2 || !bullet_3) return false; // 총알 이미지 체크
 
     return true;
 }
 
+// 이미지 해제
 void assets_unload(void) {
     if (icon_coffee_1) al_destroy_bitmap(icon_coffee_1);
     if (icon_coffee_2) al_destroy_bitmap(icon_coffee_2);
@@ -79,6 +94,9 @@ void assets_unload(void) {
     if (icon_virus3) al_destroy_bitmap(icon_virus3);
     if (icon_virus4) al_destroy_bitmap(icon_virus4);
     if (icon_coffee_bean) al_destroy_bitmap(icon_coffee_bean);
+    if (bullet_1) al_destroy_bitmap(bullet_1);
+    if (bullet_2) al_destroy_bitmap(bullet_2);
+    if (bullet_3) al_destroy_bitmap(bullet_3);
     if (spr_items) al_destroy_bitmap(spr_items);
 
     if (bg_home) al_destroy_bitmap(bg_home);
@@ -92,5 +110,6 @@ void assets_unload(void) {
     icon_sleeping = icon_people1 = icon_people2 = icon_people3 = NULL;
     icon_virus1 = icon_virus2 = icon_virus3 = icon_virus4 = NULL;
     icon_coffee_bean = NULL;
+    bullet_1 = bullet_2 = bullet_3 = NULL;
     font_title = font_ui = NULL;
 }

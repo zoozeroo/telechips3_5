@@ -22,6 +22,12 @@
 #define ENEMY_ATTACK_DAMAGE 15
 #define ENEMY_ATTACK_COOLDOWN 0.8f
 
+// 발사체 (총알)
+#define MAX_BULLETS   128
+#define BULLET_SPEED  120.0f
+#define BULLET_RADIUS 10.0f
+
+
 typedef enum { TOWER_EMPTY, TOWER_ATTACK, TOWER_RESOURCE, TOWER_TANK } TowerType;
 
 typedef struct {
@@ -45,6 +51,13 @@ typedef struct {
     bool cleared;
     bool game_over;
 } GameState;
+
+typedef struct {
+    bool  active;
+    float x, y;
+    float vx, vy;
+    int   image_type; // (3가지 이미지 타입)
+} Bullet;
 
 void game_init(void);
 void game_update(float dt);
