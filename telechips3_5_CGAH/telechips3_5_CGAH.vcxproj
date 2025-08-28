@@ -113,6 +113,8 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -136,6 +138,7 @@
     <ClCompile Include="main.c" />
     <ClCompile Include="score.c" />
     <ClCompile Include="screens.c" />
+    <ClCompile Include="ngen.c" />
   </ItemGroup>
   <ItemGroup>
     <None Include="explode1.flac" />
@@ -144,6 +147,7 @@
     <None Include="shot.flac" />
   </ItemGroup>
   <ItemGroup>
+    <Image Include="bgr.png" />
     <Image Include="spritesheet.png" />
   </ItemGroup>
   <ItemGroup>
