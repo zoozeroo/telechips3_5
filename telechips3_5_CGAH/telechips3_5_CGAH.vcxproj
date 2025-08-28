@@ -132,6 +132,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="app.c" />
+    <ClCompile Include="assets.c" />
+    <ClCompile Include="game.h" />
+    <ClCompile Include="main.c" />
+    <ClCompile Include="score.c" />
+    <ClCompile Include="screens.c" />
     <ClCompile Include="ngen.c" />
   </ItemGroup>
   <ItemGroup>
@@ -143,6 +149,12 @@
   <ItemGroup>
     <Image Include="bgr.png" />
     <Image Include="spritesheet.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="app.h" />
+    <ClInclude Include="assets.h" />
+    <ClInclude Include="score.h" />
+    <ClInclude Include="screens.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
