@@ -55,7 +55,7 @@ void game_init(void) {
         bullets[i].active = false;
     }
     game_state.caffeine = 200;
-    game_state.lives = 10;
+    game_state.lives = 5;
     game_state.stage = 1;
     game_state.stage_kills = 0;
     game_state.cleared = false;
@@ -131,6 +131,30 @@ static int spawn_bullet(float sx, float sy, int enemy_index) {
         }
     }
     return -1;
+}
+
+static inline bool anim_blink_1s(void) {
+    return (((int)al_get_time()) % 2) == 0;
+}
+
+// 타워 애니메이션 프레임 선택
+static ALLEGRO_BITMAP* tower_anim_frame(TowerType t) {
+    bool blink = anim_blink_1s();
+    switch (t) {
+    case TOWER_EMPTY:  // 잠자는 상태 (기본)
+        return icon_sleeping;
+    case TOWER_ATTACK:
+        return blink ? (icon_people1 ? icon_people1 : icon_sleeping)
+            : (icon_people1_1 ? icon_people1_1 : icon_people1);
+    case TOWER_RESOURCE:
+        return blink ? (icon_people2 ? icon_people2 : icon_sleeping)
+            : (icon_people2_1 ? icon_people2_1 : icon_people2);
+    case TOWER_TANK:
+        return blink ? (icon_people3 ? icon_people3 : icon_sleeping)
+            : (icon_people3_1 ? icon_people3_1 : icon_people3);
+    default:
+        return icon_sleeping;
+    }
 }
 
 // 원과 사각형 충돌 검사
@@ -290,26 +314,22 @@ void game_draw_grid(int W, int H, int cursor_col, int cursor_row, bool show_rang
             // 그리드 라인
             al_draw_rectangle(x1, y1, x2, y2, al_map_rgb(100, 100, 100), 1.0f);
 
+            float cx = (x1 + x2) * 0.5f;
+            float cy = (y1 + y2) * 0.5f;
+
+            ALLEGRO_BITMAP* tower_sprite = tower_anim_frame(grid[r][c].type);
+
+            if (tower_sprite) {
+                float sw = al_get_bitmap_width(tower_sprite);
+                float sh = al_get_bitmap_height(tower_sprite);
+                float scale = (CELL_W < CELL_H ? CELL_W : CELL_H) * 0.8f / (sw > sh ? sw : sh);
+                float dw = sw * scale, dh = sh * scale;
+                al_draw_scaled_bitmap(tower_sprite, 0, 0, sw, sh,
+                    cx - dw / 2, cy - dh / 2, dw, dh, 0);
+            }
+
+            // HP바는 활성화된 타워만 (TOWER_EMPTY 제외)
             if (grid[r][c].type != TOWER_EMPTY) {
-                float cx = (x1 + x2) * 0.5f;
-                float cy = (y1 + y2) * 0.5f;
-
-                // 타워 스프라이트 그리기 (MJ의 에셋 사용)
-                ALLEGRO_BITMAP* tower_sprite = NULL;
-                if (grid[r][c].type == TOWER_ATTACK) tower_sprite = icon_people1;
-                else if (grid[r][c].type == TOWER_RESOURCE) tower_sprite = icon_people2;
-                else if (grid[r][c].type == TOWER_TANK) tower_sprite = icon_people3;
-
-                if (tower_sprite) {
-                    float sw = al_get_bitmap_width(tower_sprite);
-                    float sh = al_get_bitmap_height(tower_sprite);
-                    float scale = (CELL_W < CELL_H ? CELL_W : CELL_H) * 0.8f / (sw > sh ? sw : sh);
-                    float dw = sw * scale, dh = sh * scale;
-                    al_draw_scaled_bitmap(tower_sprite, 0, 0, sw, sh,
-                        cx - dw / 2, cy - dh / 2, dw, dh, 0);
-                }
-
-                // HP 바
                 int maxhp = tower_max_hp(grid[r][c].type);
                 if (maxhp > 0) {
                     float ratio = (float)grid[r][c].hp / (float)maxhp;
@@ -399,10 +419,14 @@ void game_draw_grid(int W, int H, int cursor_col, int cursor_row, bool show_rang
         if (bullet_img) {
             float img_w = (float)al_get_bitmap_width(bullet_img);
             float img_h = (float)al_get_bitmap_height(bullet_img);
+            float scale = 3.0f; // 총알 이미지 크기 조정
+            float draw_w = img_w * scale;
+            float draw_h = img_h * scale;
             float draw_x = bullets[i].x - img_w / 2;
             float draw_y = bullets[i].y - img_h / 2;
 
-            al_draw_bitmap(bullet_img, draw_x, draw_y, 0);
+            al_draw_scaled_bitmap(bullet_img, 0, 0, img_w, img_h,
+                draw_x, draw_y, draw_w, draw_h, 0);
         }
         else {
             // 이미지가 없을 경우 폴백: 기본 원
@@ -432,7 +456,7 @@ void game_place_tower(TowerType type, int row, int col) {
 void game_sell_tower(int row, int col) {
     if (row < 0 || row >= GRID_ROWS || col < 0 || col >= GRID_COLS) return;
     Tower* cell = &grid[row][col];
-    if (cell->type == TOWER_EMPTY) return;
+    if (cell->type == TOWER_EMPTY) return;  // 잠자는 상태면 판매 불가
 
     int refund = 0;
     if (cell->type == TOWER_ATTACK) refund = ATTACK_TOWER_COST / 2;
@@ -440,6 +464,8 @@ void game_sell_tower(int row, int col) {
     else if (cell->type == TOWER_TANK) refund = TANK_TOWER_COST / 2;
 
     game_state.caffeine += refund;
+
+    // TOWER_EMPTY로 되돌림
     cell->type = TOWER_EMPTY;
     cell->hp = 0;
     cell->cooldown = 0;

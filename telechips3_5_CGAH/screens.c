@@ -106,6 +106,31 @@ void draw_play_with_game(int W, int H, int score_second, int sel_col, int sel_ro
         }
     }
 
+    // 생명 게이지
+    int lives = gs.lives;
+    if (lives < 0) lives = 0;
+    if (lives > 5) lives = 5;
+
+    ALLEGRO_BITMAP* life_bmp = NULL;
+    switch (lives) {
+    case 5: life_bmp = icon_lifegauge1; break;
+    case 4: life_bmp = icon_lifegauge2; break;
+    case 3: life_bmp = icon_lifegauge3; break;
+    case 2: life_bmp = icon_lifegauge4; break;
+    case 1: life_bmp = icon_lifegauge5; break;
+    default: life_bmp = icon_lifegauge6; break;
+    }
+
+    float gx = (float)W - 35.0f;  // 오른쪽 여백
+    float gy = 35.0f + 8.0f;      // 상단 여백
+    if (life_bmp) {
+        float sw = (float)al_get_bitmap_width(life_bmp);
+        float sh = (float)al_get_bitmap_height(life_bmp);
+        float scale = 3.5f;
+        float dw = sw * scale, dh = sh * scale;
+        al_draw_scaled_bitmap(life_bmp, 0, 0, sw, sh, gx - dw, gy, dw, dh, 0);
+    }
+
     // 게임 상태 UI
     al_draw_text(font_title, al_map_rgb(255, 255, 255), W / 2, 140, ALLEGRO_ALIGN_CENTER, "SLEEPING DEFENCE");
     al_draw_textf(font_ui, al_map_rgb(0, 0, 0), 40, 140, 0, "TIME: %s | Caffeine: %d | Lives: %d", t, gs.caffeine, gs.lives);
