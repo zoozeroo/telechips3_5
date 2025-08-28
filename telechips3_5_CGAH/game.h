@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include "app.h"  // GRID_ROWS, GRID_COLS를 위해 app.h 포함
 
+#define STARTING_CAFFEINE 200
 #define MAX_STAGES 5
 #define KILLS_TO_ADVANCE 10
 #define MAX_ENEMIES 50

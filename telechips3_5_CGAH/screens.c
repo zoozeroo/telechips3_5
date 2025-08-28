@@ -138,10 +138,49 @@ void draw_play_with_game(int W, int H, int score_second, int sel_col, int sel_ro
 
     // 조작법 안내
     al_draw_text(font_ui, al_map_rgb(180, 180, 200), W / 2, H - 100, ALLEGRO_ALIGN_CENTER, "WASD: Select Item | Arrow: Move Cursor | Space: Place/Sell | R: Show Ranges");
-    al_draw_text(font_ui, al_map_rgb(180, 180, 200), W / 2, H - 80, ALLEGRO_ALIGN_CENTER, "Enter: Force Win | Backspace: Force Lose | ESC: Quit");
+    al_draw_text(font_ui, al_map_rgb(180, 180, 200), W / 2, H - 80, ALLEGRO_ALIGN_CENTER, "Enter: Force Win | Backspace: Pause | ESC: Quit");
 
     // 게임 그리드 그리기
     game_draw_grid(W, H, sel_col, sel_row, show_ranges);
+}
+void draw_pause_overlay(int W, int H, Rect btn_resume, Rect btn_main, int selected, float mx, float my) {
+    // 반투명 배경
+    al_draw_filled_rectangle(0, 0, W, H, al_map_rgba(0, 0, 0, 160));
+
+    // 패널
+    float pw = 480.0f, ph = 260.0f;
+    float px = (W - pw) * 0.5f;
+    float py = (H - ph) * 0.5f;
+    al_draw_filled_rounded_rectangle(px, py, px + pw, py + ph, 14, 14, al_map_rgb(35, 35, 45));
+    al_draw_rounded_rectangle(px, py, px + pw, py + ph, 14, 14, al_map_rgb(255, 255, 255), 2.0f);
+
+    // 타이틀
+    al_draw_text(font_title, al_map_rgb(255, 255, 255), W / 2, py + 18, ALLEGRO_ALIGN_CENTER, "PAUSED");
+
+    // 버튼(Resume / Main Menu)
+    bool hover_resume = (mx >= btn_resume.x && mx <= btn_resume.x + btn_resume.w && my >= btn_resume.y && my <= btn_resume.y + btn_resume.h);
+    bool hover_main = (mx >= btn_main.x && mx <= btn_main.x + btn_main.w && my >= btn_main.y && my <= btn_main.y + btn_main.h);
+
+    ALLEGRO_COLOR base = al_map_rgb(70, 70, 80);
+    ALLEGRO_COLOR hover = al_map_rgb(100, 100, 120);
+    ALLEGRO_COLOR select = al_map_rgb(255, 215, 0);
+
+    ALLEGRO_COLOR fill_resume = hover_resume ? hover : base;
+    ALLEGRO_COLOR fill_main = hover_main ? hover : base;
+
+    // 키보드 선택(테두리)
+    bool sel_resume = (selected == 0);
+    bool sel_main = (selected == 1);
+
+    // Resume
+    al_draw_filled_rounded_rectangle(btn_resume.x, btn_resume.y, btn_resume.x + btn_resume.w, btn_resume.y + btn_resume.h, 8, 8, fill_resume);
+    if (sel_resume) al_draw_rounded_rectangle(btn_resume.x, btn_resume.y, btn_resume.x + btn_resume.w, btn_resume.y + btn_resume.h, 8, 8, select, 3.0f);
+    al_draw_text(font_ui, al_map_rgb(255, 255, 255), btn_resume.x + btn_resume.w / 2, btn_resume.y + 18, ALLEGRO_ALIGN_CENTER, "RESUME");
+
+    // Main
+    al_draw_filled_rounded_rectangle(btn_main.x, btn_main.y, btn_main.x + btn_main.w, btn_main.y + btn_main.h, 8, 8, fill_main);
+    if (sel_main) al_draw_rounded_rectangle(btn_main.x, btn_main.y, btn_main.x + btn_main.w, btn_main.y + btn_main.h, 8, 8, select, 3.0f);
+    al_draw_text(font_ui, al_map_rgb(255, 255, 255), btn_main.x + btn_main.w / 2, btn_main.y + 18, ALLEGRO_ALIGN_CENTER, "MAIN MENU");
 }
 
 void draw_play(int W, int H, int score_second, int sel_col, int sel_row, int selected_item, const int marks[GRID_ROWS][GRID_COLS]) {

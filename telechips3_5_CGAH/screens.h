@@ -7,3 +7,4 @@ void draw_howto(int W, int H);
 void draw_rank(int W, int H);
 void draw_end(int W, int H, const char* name_buf, int score_second, bool success);
 void draw_play_with_game(int W, int H, int score_second, int sel_col, int sel_row, int selected_item, bool show_ranges);
+void draw_pause_overlay(int W, int H, Rect btn_resume, Rect btn_main, int selected, float mx, float my);
