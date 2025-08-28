@@ -9,17 +9,23 @@
 #include "assets.h"
 #include "score.h"
 #include "screens.h"
+#include "game.h"
 
-typedef enum { STATE_MENU = 0, STATE_PLAY, STATE_HOWTO, STATE_RANK, STATE_END } GameState;
+typedef enum { STATE_MENU = 0, STATE_PLAY, STATE_HOWTO, STATE_RANK, STATE_END } AppState;
 typedef enum { RESULT_NONE = 0, RESULT_SUCCESS, RESULT_FAIL } GameResult;
 
-static GameState  g_state = STATE_MENU;
+static AppState   g_state = STATE_MENU;
 static GameResult g_result = RESULT_NONE;
 
 static char   name_buf[NAME_MAX] = { 0 };
 static int    name_len = 0;
 static bool   end_recorded = false;
 static double play_start_time = 0.0;
+
+// 플레이 화면 커서
+static int cursor_col = 0, cursor_row = 0;
+static int selected_item = 0;
+static bool show_all_ranges = false;
 
 static bool point_in_rect(float px, float py, Rect r) {
     return (px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h);
@@ -40,7 +46,7 @@ int app_run(void) {
     score_load(SCORE_FILE);
     if (!assets_load()) return 1;
 
-    ALLEGRO_TIMER* frame_timer = al_create_timer(1.0 / 60.0); // 60Hz
+    ALLEGRO_TIMER* frame_timer = al_create_timer(1.0 / 60.0);
     ALLEGRO_EVENT_QUEUE* q = al_create_event_queue();
 
     al_register_event_source(q, al_get_timer_event_source(frame_timer));
@@ -54,12 +60,7 @@ int app_run(void) {
     Rect btn_rank = { W / 2.0f - 120, H / 2.0f + 50, 240, 50 };
 
     float mx = 0, my = 0;
-    int   score = 0;
-
-    // 격자/아이템 선택 상태
-    int selected_item = 0;          // 0=선택없음, 1/2/3
-    int sel_col = 0, sel_row = 0;   // 커서 위치(0,0) 시작
-    int grid_marks[GRID_ROWS][GRID_COLS]; // 0=없음, 1/2/3 색
+    int final_score = 0;
 
     bool running = true, redraw = true;
 
@@ -71,7 +72,25 @@ int app_run(void) {
             running = false;
         }
         else if (ev.type == ALLEGRO_EVENT_TIMER) {
-            if (ev.timer.source == frame_timer) redraw = true;
+            if (ev.timer.source == frame_timer) {
+                redraw = true;
+
+                if (g_state == STATE_PLAY) {
+                    game_update(1.0f / 60.0f);
+
+                    GameState gs = game_get_state();
+                    if (gs.game_over || gs.lives <= 0) {
+                        g_result = RESULT_FAIL;
+                        final_score = (int)(al_get_time() - play_start_time);
+                        g_state = STATE_END;
+                    }
+                    else if (gs.cleared) {
+                        g_result = RESULT_SUCCESS;
+                        final_score = (int)(al_get_time() - play_start_time);
+                        g_state = STATE_END;
+                    }
+                }
+            }
         }
         else if (ev.type == ALLEGRO_EVENT_MOUSE_AXES) {
             mx = ev.mouse.x; my = ev.mouse.y;
@@ -81,14 +100,16 @@ int app_run(void) {
                 if (point_in_rect(mx, my, btn_start)) {
                     g_state = STATE_PLAY;
                     g_result = RESULT_NONE;
-                    score = 0;
+                    final_score = 0;
                     end_recorded = false;
                     name_len = 0; name_buf[0] = '\0';
                     play_start_time = al_get_time();
 
+                    cursor_col = 0; cursor_row = 0;
                     selected_item = 0;
-                    sel_col = 0; sel_row = 0;
-                    memset(grid_marks, 0, sizeof grid_marks);
+                    show_all_ranges = false;
+                    game_reset();
+                    game_init();
                 }
                 else if (point_in_rect(mx, my, btn_howto)) {
                     g_state = STATE_HOWTO; g_result = RESULT_NONE;
@@ -99,7 +120,6 @@ int app_run(void) {
             }
         }
         else if (ev.type == ALLEGRO_EVENT_KEY_CHAR) {
-            // END에서만 문자 입력(닉네임)
             if (g_state == STATE_END) {
                 int ch = ev.keyboard.unichar;
                 if (ev.keyboard.keycode == ALLEGRO_KEY_BACKSPACE) {
@@ -124,43 +144,47 @@ int app_run(void) {
                 if (key == ALLEGRO_KEY_SPACE) g_state = STATE_MENU;
             }
             else if (g_state == STATE_PLAY) {
-                // WASD : 아이템 선택/해제 (상단 숫자)
+                // 아이템 선택 (WASD)
                 switch (key) {
+                case ALLEGRO_KEY_W: selected_item = 0; break;
                 case ALLEGRO_KEY_A: selected_item = 1; break;
                 case ALLEGRO_KEY_S: selected_item = 2; break;
                 case ALLEGRO_KEY_D: selected_item = 3; break;
-                case ALLEGRO_KEY_W: selected_item = 0; break;
                 }
 
-                // 방향키 커서 이동
-                if (key == ALLEGRO_KEY_LEFT && sel_col > 0)               sel_col--;
-                if (key == ALLEGRO_KEY_RIGHT && sel_col < GRID_COLS - 1)   sel_col++;
-                if (key == ALLEGRO_KEY_UP && sel_row > 0)               sel_row--;
-                if (key == ALLEGRO_KEY_DOWN && sel_row < GRID_ROWS - 1)   sel_row++;
+                // 커서 이동
+                if (key == ALLEGRO_KEY_LEFT && cursor_col > 0) cursor_col--;
+                if (key == ALLEGRO_KEY_RIGHT && cursor_col < GRID_COLS - 1) cursor_col++;
+                if (key == ALLEGRO_KEY_UP && cursor_row > 0) cursor_row--;
+                if (key == ALLEGRO_KEY_DOWN && cursor_row < GRID_ROWS - 1) cursor_row++;
 
+                // 타워 설치/판매
                 if (key == ALLEGRO_KEY_SPACE) {
-                    if (selected_item >= 1 && selected_item <= 3 &&
-                        grid_marks[sel_row][sel_col] == 0) {
-                        grid_marks[sel_row][sel_col] = selected_item;
-                    }
+                    if (selected_item == 1) game_place_tower(TOWER_ATTACK, cursor_row, cursor_col);
+                    else if (selected_item == 2) game_place_tower(TOWER_RESOURCE, cursor_row, cursor_col);
+                    else if (selected_item == 3) game_place_tower(TOWER_TANK, cursor_row, cursor_col);
+                    else game_sell_tower(cursor_row, cursor_col);
                 }
 
-                // 게임 종료(성공/실패) → 점수는 소요 시간(초)
+                // 범위 표시 토글
+                if (key == ALLEGRO_KEY_R) show_all_ranges = !show_all_ranges;
+
+                // 강제 종료 (테스트용)
                 if (key == ALLEGRO_KEY_ENTER) {
                     g_result = RESULT_SUCCESS;
-                    score = (int)(al_get_time() - play_start_time);
+                    final_score = (int)(al_get_time() - play_start_time);
                     g_state = STATE_END;
                 }
                 else if (key == ALLEGRO_KEY_BACKSPACE) {
                     g_result = RESULT_FAIL;
-                    score = (int)(al_get_time() - play_start_time);
+                    final_score = (int)(al_get_time() - play_start_time);
                     g_state = STATE_END;
                 }
             }
             else if (g_state == STATE_END) {
                 if (key == ALLEGRO_KEY_ENTER) {
                     if (!end_recorded) {
-                        score_add_and_save(score, name_buf, SCORE_FILE);
+                        score_add_and_save(final_score, name_buf, SCORE_FILE);
                         end_recorded = true;
                     }
                     g_state = STATE_MENU;
@@ -171,7 +195,6 @@ int app_run(void) {
             }
         }
 
-        // === 그리기(이벤트 분기 바깥) ===
         if (redraw && al_is_event_queue_empty(q)) {
             switch (g_state) {
             case STATE_MENU:
@@ -179,12 +202,12 @@ int app_run(void) {
                 break;
             case STATE_PLAY: {
                 int live_sec = (int)(al_get_time() - play_start_time);
-                draw_play(W, H, live_sec, sel_col, sel_row, selected_item, grid_marks);
+                draw_play_with_game(W, H, live_sec, cursor_col, cursor_row, selected_item, show_all_ranges);
                 break;
             }
             case STATE_HOWTO: draw_howto(W, H); break;
             case STATE_RANK:  draw_rank(W, H);  break;
-            case STATE_END:   draw_end(W, H, name_buf, score, (g_result == RESULT_SUCCESS)); break;
+            case STATE_END:   draw_end(W, H, name_buf, final_score, (g_result == RESULT_SUCCESS)); break;
             }
             al_flip_display();
             redraw = false;

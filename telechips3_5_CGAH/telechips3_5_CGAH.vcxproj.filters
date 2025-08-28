@@ -18,7 +18,28 @@
     <ClCompile Include="ngen.c">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="test.c">
+    <ClCompile Include="app.c">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="assets.c">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="game.h">
+      <Filter>헤더 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="main.c">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="memo.c">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="score.c">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="screens.c">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="game.c">
       <Filter>소스 파일</Filter>
     </ClCompile>
   </ItemGroup>
@@ -41,5 +62,19 @@
     <Image Include="spritesheet.png">
       <Filter>리소스 파일</Filter>
     </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="app.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="assets.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="score.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="screens.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

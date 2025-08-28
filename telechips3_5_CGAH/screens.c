@@ -5,19 +5,8 @@
 #include "screens.h"
 #include "assets.h"
 #include "score.h"
+#include "game.h"
 
-#ifndef GRID_COLS
-#define GRID_COLS 10
-#endif
-#ifndef GRID_ROWS
-#define GRID_ROWS 6
-#endif
-
-// 그리드 배치 파라미터(픽셀)
-static const int GRID_MARGIN_X = 16;   // 좌우 여백
-static const int GRID_TOP = 149;  // 격자 시작 Y
-
-// 시간(초) → "MM:SS"
 static void fmt_time_s(int sec, char* out, size_t n) {
     if (sec < 0) sec = 0;
     int m = sec / 60;
@@ -66,31 +55,18 @@ void draw_menu(int W, int H, Rect btn_start, Rect btn_howto, Rect btn_rank, floa
     al_draw_text(font_ui, al_map_rgb(220, 220, 230), W / 2, H - 80, ALLEGRO_ALIGN_CENTER, "Click the button to start");
 }
 
-// 플레이 화면
-//  - 좌상단 슬롯 3개(커피 아이콘)
-//  - 격자 계산
-//  - "왼쪽부터 4칸, 아래로 5칸" 간격 스폰 지점에 스프라이트 표시
-//    (0: icon_sleeping, 1/2/3: icon_people1/2/3)
-//  - 현재 선택 셀 테두리
-
-void draw_play(int W, int H, int score_second,
-    int sel_col, int sel_row,
-    int selected_item,
-    const int marks[GRID_ROWS][GRID_COLS])
-{
+void draw_play_with_game(int W, int H, int score_second, int sel_col, int sel_row, int selected_item, bool show_ranges) {
     draw_bg(bg_play ? bg_play : bg_home, W, H);
 
-    // 시간 문자열
     char t[32]; fmt_time_s(score_second, t, sizeof t);
+    GameState gs = game_get_state();
 
-    // (A) 좌상단 슬롯 + 아이콘
-    // draw_play() 안에서 (좌상단 슬롯 + 아이콘 + 커피콩 + 숫자)
-    // draw_play() 안에서 (좌상단 슬롯 + 아이콘 + 커피콩 + 숫자)
+    // 상단 UI 슬롯 그리기
     const float pad = 35.0f;
-    const float size = 62.0f;   // 슬롯 박스 크기
-    const float gap = 18.0f;    // 슬롯 간격
-    const float inset = 6.0f;   // 슬롯 여백
-    const float bean_draw_size = 20.0f; // 화면에 그릴 커피콩 크기
+    const float size = 62.0f;
+    const float gap = 18.0f;
+    const float inset = 6.0f;
+    const float bean_draw_size = 20.0f;
 
     for (int i = 0; i < 3; ++i) {
         float x1 = pad + i * (size + gap);
@@ -99,11 +75,7 @@ void draw_play(int W, int H, int score_second,
 
         al_draw_filled_rectangle(x1, y1, x2, y2, al_map_rgb(60, 60, 60));
 
-        // 커피 아이콘
-        ALLEGRO_BITMAP* icon =
-            (i == 0) ? icon_coffee_1 :
-            (i == 1) ? icon_coffee_2 :
-            icon_coffee_3;
+        ALLEGRO_BITMAP* icon = (i == 0) ? icon_coffee_1 : (i == 1) ? icon_coffee_2 : icon_coffee_3;
         if (icon) {
             float iw = (float)al_get_bitmap_width(icon);
             float ih = (float)al_get_bitmap_height(icon);
@@ -115,93 +87,53 @@ void draw_play(int W, int H, int score_second,
             al_draw_scaled_bitmap(icon, 0, 0, (int)iw, (int)ih, dx, dy, dw, dh, 0);
         }
 
-        // 선택 테두리
         bool picked = (selected_item == (i + 1));
         ALLEGRO_COLOR o = picked ? al_map_rgb(255, 215, 0) : al_map_rgb(255, 255, 255);
         al_draw_rectangle(x1 - 1.5f, y1 - 1.5f, x2 + 1.5f, y2 + 1.5f, o, 3.0f);
 
-        // 커피콩 + 가격
         if (icon_coffee_bean) {
             float slot_center = x1 + size * 0.5f;
             float bean_y = y2 + 6.0f;
-
             float bean_w = (float)al_get_bitmap_width(icon_coffee_bean);
             float bean_h = (float)al_get_bitmap_height(icon_coffee_bean);
-
             float bean_x = slot_center - (bean_draw_size + 20) * 0.5f;
 
             al_draw_scaled_bitmap(icon_coffee_bean, 0, 0, (int)bean_w, (int)bean_h,
                 bean_x, bean_y, bean_draw_size, bean_draw_size, 0);
 
-            // 가격 숫자 (10, 20, 30)
-            int cost = (i == 0) ? 10 : (i == 1) ? 20 : 30;
-            al_draw_textf(font_ui, al_map_rgb(0, 0, 0), bean_x + bean_draw_size + 7, bean_y + 7, 0, "%d", cost); // 살짝 위로 올리기
+            int cost = (i == 0) ? 100 : (i == 1) ? 75 : 50;
+            al_draw_textf(font_ui, al_map_rgb(0, 0, 0), bean_x + bean_draw_size + 7, bean_y + 7, 0, "%d", cost);
         }
     }
 
+    // 게임 상태 UI
+    al_draw_text(font_title, al_map_rgb(255, 255, 255), W / 2, 140, ALLEGRO_ALIGN_CENTER, "SLEEPING DEFENCE");
+    al_draw_textf(font_ui, al_map_rgb(220, 220, 230), 10, 160, 0, "TIME: %s | Caffeine: %d | Lives: %d", t, gs.caffeine, gs.lives);
+    al_draw_textf(font_ui, al_map_rgb(200, 220, 240), 10, 180, 0, "Stage %d/%d | Kills: %d/%d", gs.stage, MAX_STAGES, gs.stage_kills, KILLS_TO_ADVANCE);
 
+    // 조작법 안내
+    al_draw_text(font_ui, al_map_rgb(180, 180, 200), W / 2, H - 100, ALLEGRO_ALIGN_CENTER, "WASD: Select Item | Arrow: Move Cursor | Space: Place/Sell | R: Show Ranges");
+    al_draw_text(font_ui, al_map_rgb(180, 180, 200), W / 2, H - 80, ALLEGRO_ALIGN_CENTER, "Enter: Force Win | Backspace: Force Lose | ESC: Quit");
 
-    // (B) 안내 텍스트
-    al_draw_text(font_title, al_map_rgb(255, 255, 255), W / 2, 140, ALLEGRO_ALIGN_CENTER, "GAME SCREEN");
-    al_draw_textf(font_ui, al_map_rgb(220, 220, 230), W / 2, 200, ALLEGRO_ALIGN_CENTER, "TIME : %s", t);
-    al_draw_text(font_ui, al_map_rgb(200, 220, 240), W / 2, 260, ALLEGRO_ALIGN_CENTER, "Press ENTER for SUCCESS");
-    al_draw_text(font_ui, al_map_rgb(240, 200, 200), W / 2, 290, ALLEGRO_ALIGN_CENTER, "Press BACKSPACE for FAIL");
-    al_draw_text(font_ui, al_map_rgb(220, 220, 230), W / 2, H - 80, ALLEGRO_ALIGN_CENTER, "ESC to quit");
+    // 게임 그리드 그리기
+    game_draw_grid(W, H, sel_col, sel_row, show_ranges);
+}
 
-    // 격자 배치 계산
-    int avail_w = W - GRID_MARGIN_X * 2;
-    int avail_h = H - GRID_TOP - 16;
-    int cell_w = avail_w / GRID_COLS;
-    int cell_h = avail_h / GRID_ROWS;
-    int cell = (cell_w < cell_h) ? cell_w : cell_h;
-    int grid_x0 = GRID_MARGIN_X + (avail_w - cell * GRID_COLS) / 2;
-    int grid_y0 = GRID_TOP + (avail_h - cell * GRID_ROWS) / 2;
-
-    // 스폰 셀마다 스프라이트 그리기
-    for (int r = 0; r < 5; ++r) {
-        for (int c = 0; c < 3; ++c) {
-            int id = marks[r][c]; // 0=자는학생, 1/2/3=교체 아이템
-
-            ALLEGRO_BITMAP* spr =
-                (id == 0) ? icon_sleeping :
-                (id == 1) ? icon_people1 :
-                (id == 2) ? icon_people2 :
-                icon_people3;
-
-            if (!spr) continue;
-
-            float iw = (float)al_get_bitmap_width(spr);
-            float ih = (float)al_get_bitmap_height(spr);
-
-            const float inset = 4.0f;
-            float maxw = (float)cell - inset * 2.0f;
-            float maxh = (float)cell - inset * 2.0f;
-
-            float dw = maxw, dh = dw * (ih / iw);
-            if (dh > maxh) { dh = maxh; dw = dh * (iw / ih); }
-
-            float dx = (float)(grid_x0 + c * cell) + ((float)cell - dw) * 0.5f;
-            float dy = (float)(grid_y0 + r * cell) + ((float)cell - dh) * 0.5f;
-
-            al_draw_scaled_bitmap(spr, 0, 0, (int)iw, (int)ih, dx, dy, dw, dh, 0);
-        }
-    }
-
-    // 현재 선택 칸 테두리
-    if (sel_col >= 0 && sel_col < GRID_COLS && sel_row >= 0 && sel_row < GRID_ROWS) {
-        float x1 = (float)(grid_x0 + sel_col * cell);
-        float y1 = (float)(grid_y0 + sel_row * cell);
-        float x2 = x1 + (float)cell;
-        float y2 = y1 + (float)cell;
-        al_draw_rectangle(x1 + 0.5f, y1 + 0.5f, x2 - 0.5f, y2 - 0.5f, al_map_rgb(255, 255, 255), 3.0f);
-    }
+void draw_play(int W, int H, int score_second, int sel_col, int sel_row, int selected_item, const int marks[GRID_ROWS][GRID_COLS]) {
+    // 호환성을 위한 래퍼 함수 - 실제로는 새로운 게임 로직 사용
+    draw_play_with_game(W, H, score_second, sel_col, sel_row, selected_item, false);
 }
 
 void draw_howto(int W, int H) {
     draw_bg(bg_play, W, H);
     al_draw_text(font_title, al_map_rgb(255, 255, 255), W / 2, 120, ALLEGRO_ALIGN_CENTER, "HOW TO PLAY");
-    al_draw_text(font_ui, al_map_rgb(200, 220, 240), W / 2, 260, ALLEGRO_ALIGN_CENTER, "EAT POTATO");
-    al_draw_text(font_ui, al_map_rgb(240, 200, 200), W / 2, 290, ALLEGRO_ALIGN_CENTER, "EAT SWEET POTATO");
+
+    al_draw_text(font_ui, al_map_rgb(200, 220, 240), W / 2, 180, ALLEGRO_ALIGN_CENTER, "Defend against sleeping students!");
+    al_draw_text(font_ui, al_map_rgb(200, 220, 240), W / 2, 210, ALLEGRO_ALIGN_CENTER, "Place coffee towers to wake them up");
+    al_draw_text(font_ui, al_map_rgb(200, 220, 240), W / 2, 240, ALLEGRO_ALIGN_CENTER, "Resource towers generate caffeine");
+    al_draw_text(font_ui, al_map_rgb(200, 220, 240), W / 2, 270, ALLEGRO_ALIGN_CENTER, "Tank towers absorb damage");
+    al_draw_text(font_ui, al_map_rgb(200, 220, 240), W / 2, 300, ALLEGRO_ALIGN_CENTER, "Survive all 5 stages to win!");
+
     al_draw_text(font_ui, al_map_rgb(220, 220, 230), W / 2, H - 80, ALLEGRO_ALIGN_CENTER, "back to menu : SPACE BAR");
 }
 

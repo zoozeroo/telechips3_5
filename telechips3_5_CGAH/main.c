@@ -1,5 +1,5 @@
 #include "app.h"
 
-int main(void) {            //¾Û ½ÇÇà
+int main(void) {
     return app_run();
 }
