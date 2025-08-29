@@ -11,9 +11,9 @@
 #define ATTACK_TOWER_COST 100
 #define RESOURCE_TOWER_COST 75
 #define TANK_TOWER_COST 50
-#define ATTACK_TOWER_RANGE 100.0f // 공격 유닛 사거리
+#define ATTACK_TOWER_RANGE 150.0f // 공격 유닛 사거리
 #define ATTACK_TOWER_DAMAGE 25
-#define ATTACK_TOWER_COOLDOWN 0.8f
+#define ATTACK_TOWER_COOLDOWN 0.25f // 공격 유닛 쿨타임
 #define RESOURCE_TOWER_AMOUNT 15
 #define RESOURCE_TOWER_COOLDOWN 1.0f
 #define ATTACK_TOWER_HP 200
@@ -47,6 +47,7 @@ typedef enum {
 #define BOMB_FUSE_TIME        0.75f
 #define BOMB_RADIUS          100.0f
 #define BOMB_DAMAGE           140
+#define BOMB_ARM_TIME 2.0f    // 폭탄 타이머 (2초)
 #define FREEZER_HP            150
 #define FREEZER_SPEED         24.0f
 #define FREEZER_STUN_DUR      2.5f   // (미사용, 참고용)

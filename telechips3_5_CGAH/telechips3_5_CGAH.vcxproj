@@ -140,13 +140,10 @@
     <ClCompile Include="memo.c" />
     <ClCompile Include="score.c" />
     <ClCompile Include="screens.c" />
-    <ClCompile Include="ngen.c" />
+    <ClCompile Include="sound.c" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="explode1.flac" />
-    <None Include="explode2.flac" />
     <None Include="packages.config" />
-    <None Include="shot.flac" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="..\..\..\Users\yygs3\Downloads\spritesheet.png" />
@@ -157,6 +154,21 @@
     <ClInclude Include="assets.h" />
     <ClInclude Include="score.h" />
     <ClInclude Include="screens.h" />
+    <ClInclude Include="sound.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Media Include="..\..\..\Users\yygs3\Downloads\bgm_game.mp3" />
+    <Media Include="..\..\..\Users\yygs3\Downloads\bgm_other.mp3" />
+    <Media Include="..\..\..\Users\yygs3\Downloads\button_click.mp3" />
+    <Media Include="..\..\..\Users\yygs3\Downloads\buy.mp3" />
+    <Media Include="..\..\..\Users\yygs3\Downloads\fail.mp3" />
+    <Media Include="..\..\..\Users\yygs3\Downloads\life.mp3" />
+    <Media Include="..\..\..\Users\yygs3\Downloads\people1_attack.mp3" />
+    <Media Include="..\..\..\Users\yygs3\Downloads\people2_coin.mp3" />
+    <Media Include="..\..\..\Users\yygs3\Downloads\success.mp3" />
+    <Media Include="..\..\..\Users\yygs3\Downloads\virus3_explode.mp3" />
+    <Media Include="..\..\..\Users\yygs3\Downloads\virus3_timer.mp3" />
+    <Media Include="..\..\..\Users\yygs3\Downloads\virus4_freeze.mp3" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

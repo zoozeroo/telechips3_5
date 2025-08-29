@@ -10,6 +10,7 @@
 #include "score.h"
 #include "screens.h"
 #include "game.h"
+#include "sound.h"
 
 typedef enum { STATE_MENU = 0, STATE_PLAY, STATE_HOWTO, STATE_RANK, STATE_END } AppState;
 typedef enum { RESULT_NONE = 0, RESULT_SUCCESS, RESULT_FAIL } GameResult;
@@ -35,6 +36,28 @@ static bool point_in_rect(float px, float py, Rect r) {
     return (px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h);
 }
 
+// ★ 새로 추가: 상태에 따른 배경음악 관리
+static void manage_bgm_for_state(AppState state) {
+    switch (state) {
+    case STATE_MENU:
+    case STATE_HOWTO:
+    case STATE_RANK:
+    case STATE_END:
+        // 메뉴 관련 화면들은 모두 bgm_other 사용
+        if (bgm_get_current() != BGM_OTHER) {
+            bgm_play(BGM_OTHER);
+        }
+        break;
+
+    case STATE_PLAY:
+        // 게임 화면에서는 bgm_game 사용
+        if (bgm_get_current() != BGM_GAME) {
+            bgm_play(BGM_GAME);
+        }
+        break;
+    }
+}
+
 int app_run(void) {
     if (!al_init()) return 1;
     al_install_keyboard();
@@ -42,6 +65,9 @@ int app_run(void) {
     al_init_font_addon();
     al_init_primitives_addon();
     if (!al_init_image_addon()) return 1;
+    if (!sound_init()) {
+        printf("Warning: Sound system failed to initialize\n");
+    }
 
     const int W = 960, H = 720; // 게임창 크기
     ALLEGRO_DISPLAY* disp = al_create_display(W, H);
@@ -49,6 +75,9 @@ int app_run(void) {
 
     score_load(SCORE_FILE);
     if (!assets_load()) return 1;
+
+    // ★ 초기 배경음악 시작 (메뉴 화면)
+    manage_bgm_for_state(g_state);
 
     ALLEGRO_TIMER* frame_timer = al_create_timer(1.0 / 60.0);
     ALLEGRO_EVENT_QUEUE* q = al_create_event_queue();
@@ -91,16 +120,22 @@ int app_run(void) {
 
                     GameState gs = game_get_state();
                     if (gs.game_over || gs.lives <= 0) {
+                        sound_play(SOUND_FAIL);
                         g_result = RESULT_FAIL;
                         final_score = (int)(al_get_time() - play_start_time);
                         g_state = STATE_END;
                         g_paused = false; // 혹시 모를 잔여 정지 해제
+                        // ★ 상태 변경시 배경음악 관리
+                        manage_bgm_for_state(g_state);
                     }
                     else if (gs.cleared) {
+                        sound_play(SOUND_SUCCESS);
                         g_result = RESULT_SUCCESS;
                         final_score = (int)(al_get_time() - play_start_time);
                         g_state = STATE_END;
                         g_paused = false;
+                        // ★ 상태 변경시 배경음악 관리
+                        manage_bgm_for_state(g_state);
                     }
                 }
             }
@@ -117,6 +152,7 @@ int app_run(void) {
         else if (ev.type == ALLEGRO_EVENT_MOUSE_BUTTON_DOWN) {
             if (g_state == STATE_MENU) {
                 if (point_in_rect(mx, my, btn_start)) {
+                    sound_play(SOUND_BUTTON_CLICK);
                     g_state = STATE_PLAY;
                     g_result = RESULT_NONE;
                     final_score = 0;
@@ -130,22 +166,34 @@ int app_run(void) {
                     g_paused = false; pause_sel = 0;
                     game_reset();
                     game_init();
+                    // ★ 상태 변경시 배경음악 관리
+                    manage_bgm_for_state(g_state);
                 }
                 else if (point_in_rect(mx, my, btn_howto)) {
+                    sound_play(SOUND_BUTTON_CLICK);
                     g_state = STATE_HOWTO; g_result = RESULT_NONE;
+                    // ★ 상태 변경시 배경음악 관리 (하지만 둘 다 BGM_OTHER이므로 변화 없음)
+                    manage_bgm_for_state(g_state);
                 }
                 else if (point_in_rect(mx, my, btn_rank)) {
+                    sound_play(SOUND_BUTTON_CLICK);
                     g_state = STATE_RANK;  g_result = RESULT_NONE;
+                    // ★ 상태 변경시 배경음악 관리 (하지만 둘 다 BGM_OTHER이므로 변화 없음)
+                    manage_bgm_for_state(g_state);
                 }
             }
             else if (g_state == STATE_PLAY && g_paused) {
                 // ★ 마우스로 일시정지 버튼 클릭
                 if (point_in_rect(mx, my, btn_resume)) {
+                    sound_play(SOUND_BUTTON_CLICK);
                     g_paused = false;
                 }
                 else if (point_in_rect(mx, my, btn_main)) {
+                    sound_play(SOUND_BUTTON_CLICK);
                     g_state = STATE_MENU;
                     g_paused = false;
+                    // ★ 상태 변경시 배경음악 관리
+                    manage_bgm_for_state(g_state);
                 }
             }
         }
@@ -168,10 +216,18 @@ int app_run(void) {
             if (key == ALLEGRO_KEY_ESCAPE) running = false;
 
             if (g_state == STATE_HOWTO) {
-                if (key == ALLEGRO_KEY_SPACE) g_state = STATE_MENU;
+                if (key == ALLEGRO_KEY_SPACE) {
+                    g_state = STATE_MENU;
+                    // ★ 상태 변경시 배경음악 관리 (하지만 둘 다 BGM_OTHER이므로 변화 없음)
+                    manage_bgm_for_state(g_state);
+                }
             }
             else if (g_state == STATE_RANK) {
-                if (key == ALLEGRO_KEY_SPACE) g_state = STATE_MENU;
+                if (key == ALLEGRO_KEY_SPACE) {
+                    g_state = STATE_MENU;
+                    // ★ 상태 변경시 배경음악 관리 (하지만 둘 다 BGM_OTHER이므로 변화 없음)
+                    manage_bgm_for_state(g_state);
+                }
             }
             else if (g_state == STATE_PLAY) {
 
@@ -193,12 +249,16 @@ int app_run(void) {
                     else if (key == ALLEGRO_KEY_ENTER || key == ALLEGRO_KEY_SPACE) {
                         if (pause_sel == 0) {
                             // Resume
+                            sound_play(SOUND_BUTTON_CLICK);
                             g_paused = false;
                         }
                         else {
                             // Main Menu
+                            sound_play(SOUND_BUTTON_CLICK);
                             g_state = STATE_MENU;
                             g_paused = false;
+                            // ★ 상태 변경시 배경음악 관리
+                            manage_bgm_for_state(g_state);
                         }
                     }
                     // 일시정지 중엔 다른 조작 무시
@@ -236,6 +296,8 @@ int app_run(void) {
                     g_result = RESULT_SUCCESS;
                     final_score = (int)(al_get_time() - play_start_time);
                     g_state = STATE_END;
+                    // ★ 상태 변경시 배경음악 관리
+                    manage_bgm_for_state(g_state);
                 }
             }
             else if (g_state == STATE_END) {
@@ -245,9 +307,13 @@ int app_run(void) {
                         end_recorded = true;
                     }
                     g_state = STATE_MENU;
+                    // ★ 상태 변경시 배경음악 관리
+                    manage_bgm_for_state(g_state);
                 }
                 else if (key == ALLEGRO_KEY_SPACE) {
                     g_state = STATE_MENU;
+                    // ★ 상태 변경시 배경음악 관리
+                    manage_bgm_for_state(g_state);
                 }
             }
         }
@@ -276,9 +342,13 @@ int app_run(void) {
         }
     }
 
+    // ★ 종료시 배경음악 정리
+    bgm_stop();
+
     assets_unload();
     al_destroy_event_queue(q);
     al_destroy_timer(frame_timer);
     al_destroy_display(disp);
+    sound_cleanup();
     return 0;
 }

@@ -7,6 +7,7 @@
 #include "score.h"
 #include "game.h"
 
+// time(sec) -> "MM:SS"
 static void fmt_time_s(int sec, char* out, size_t n) {
     if (sec < 0) sec = 0;
     int m = sec / 60;
@@ -61,7 +62,7 @@ void draw_play_with_game(int W, int H, int score_second, int sel_col, int sel_ro
     char t[32]; fmt_time_s(score_second, t, sizeof t);
     GameState gs = game_get_state();
 
-    // 상단 UI 슬롯 그리기
+    // 상단 슬롯
     const float pad = 35.0f;
     const float size = 62.0f;
     const float gap = 18.0f;
@@ -121,8 +122,8 @@ void draw_play_with_game(int W, int H, int score_second, int sel_col, int sel_ro
     default: life_bmp = icon_lifegauge6; break;
     }
 
-    float gx = (float)W - 35.0f;  // 오른쪽 여백
-    float gy = 35.0f + 8.0f;      // 상단 여백
+    float gx = (float)W - 35.0f;
+    float gy = 35.0f + 8.0f;
     if (life_bmp) {
         float sw = (float)al_get_bitmap_width(life_bmp);
         float sh = (float)al_get_bitmap_height(life_bmp);
@@ -131,20 +132,21 @@ void draw_play_with_game(int W, int H, int score_second, int sel_col, int sel_ro
         al_draw_scaled_bitmap(life_bmp, 0, 0, sw, sh, gx - dw, gy, dw, dh, 0);
     }
 
-    // 게임 상태 UI
+    // 상태 UI
     al_draw_text(font_title, al_map_rgb(255, 255, 255), W / 2, 140, ALLEGRO_ALIGN_CENTER, "SLEEPING DEFENCE");
     al_draw_textf(font_ui, al_map_rgb(0, 0, 0), 40, 140, 0, "TIME: %s | Caffeine: %d | Lives: %d", t, gs.caffeine, gs.lives);
     al_draw_textf(font_ui, al_map_rgb(0, 0, 0), 40, 160, 0, "Stage %d/%d | Kills: %d/%d", gs.stage, MAX_STAGES, gs.stage_kills, KILLS_TO_ADVANCE);
 
-    // 조작법 안내
+    // 조작법
     al_draw_text(font_ui, al_map_rgb(180, 180, 200), W / 2, H - 100, ALLEGRO_ALIGN_CENTER, "WASD: Select Item | Arrow: Move Cursor | Space: Place/Sell | R: Show Ranges");
     al_draw_text(font_ui, al_map_rgb(180, 180, 200), W / 2, H - 80, ALLEGRO_ALIGN_CENTER, "Enter: Force Win | Backspace: Pause | ESC: Quit");
 
-    // 게임 그리드 그리기
+    // 게임 그리드
     game_draw_grid(W, H, sel_col, sel_row, show_ranges);
 }
+
 void draw_pause_overlay(int W, int H, Rect btn_resume, Rect btn_main, int selected, float mx, float my) {
-    // 반투명 배경
+    // 배경
     al_draw_filled_rectangle(0, 0, W, H, al_map_rgba(0, 0, 0, 160));
 
     // 패널
@@ -157,7 +159,7 @@ void draw_pause_overlay(int W, int H, Rect btn_resume, Rect btn_main, int select
     // 타이틀
     al_draw_text(font_title, al_map_rgb(255, 255, 255), W / 2, py + 18, ALLEGRO_ALIGN_CENTER, "PAUSED");
 
-    // 버튼(Resume / Main Menu)
+    // 버튼
     bool hover_resume = (mx >= btn_resume.x && mx <= btn_resume.x + btn_resume.w && my >= btn_resume.y && my <= btn_resume.y + btn_resume.h);
     bool hover_main = (mx >= btn_main.x && mx <= btn_main.x + btn_main.w && my >= btn_main.y && my <= btn_main.y + btn_main.h);
 
@@ -168,7 +170,6 @@ void draw_pause_overlay(int W, int H, Rect btn_resume, Rect btn_main, int select
     ALLEGRO_COLOR fill_resume = hover_resume ? hover : base;
     ALLEGRO_COLOR fill_main = hover_main ? hover : base;
 
-    // 키보드 선택(테두리)
     bool sel_resume = (selected == 0);
     bool sel_main = (selected == 1);
 
@@ -183,8 +184,8 @@ void draw_pause_overlay(int W, int H, Rect btn_resume, Rect btn_main, int select
     al_draw_text(font_ui, al_map_rgb(255, 255, 255), btn_main.x + btn_main.w / 2, btn_main.y + 18, ALLEGRO_ALIGN_CENTER, "MAIN MENU");
 }
 
+// 구버전 호환 래퍼
 void draw_play(int W, int H, int score_second, int sel_col, int sel_row, int selected_item, const int marks[GRID_ROWS][GRID_COLS]) {
-    // 호환성을 위한 래퍼 함수 - 실제로는 새로운 게임 로직 사용
     draw_play_with_game(W, H, score_second, sel_col, sel_row, selected_item, false);
 }
 
@@ -208,10 +209,14 @@ void draw_rank(int W, int H) {
     int view = score_count_get(); if (view > 10) view = 10;
     for (int i = 0; i < view; ++i) {
         Entry e = score_get(i);
-        char t[32]; fmt_time_s(e.score, t, sizeof t);
-        al_draw_textf(font_ui, al_map_rgb(255, 255, 255),
+        char t[32]; fmt_time_s(e.time, t, sizeof t);
+
+        al_draw_textf(
+            font_ui, al_map_rgb(255, 255, 255),
             W / 2, 140 + (i + 1) * 30, ALLEGRO_ALIGN_CENTER,
-            "%d. %s : %s", i + 1, e.name, t);
+            "%d. %s  |  Stage %d  |  Time %s",
+            i + 1, e.name, e.stage, t
+        );
     }
     al_draw_text(font_ui, al_map_rgb(220, 220, 230), W / 2, H - 55, ALLEGRO_ALIGN_CENTER, "back to menu : SPACE BAR");
 }
@@ -224,7 +229,14 @@ void draw_end(int W, int H, const char* name_buf, int score_second, bool success
     ALLEGRO_COLOR c = success ? al_map_rgb(120, 220, 120) : al_map_rgb(230, 120, 120);
 
     al_draw_text(font_title, c, W / 2, 120, ALLEGRO_ALIGN_CENTER, msg);
-    al_draw_textf(font_ui, al_map_rgb(220, 220, 230), W / 2, 160, ALLEGRO_ALIGN_CENTER, "Your time : %s", t);
+
+    // 현재까지 클리어한 스테이지 계산
+    GameState gs = game_get_state();
+    int cleared = gs.cleared ? gs.stage : (gs.stage > 0 ? gs.stage - 1 : 0);
+
+    al_draw_textf(font_ui, al_map_rgb(220, 220, 230), W / 2, 160, ALLEGRO_ALIGN_CENTER,
+        "Cleared Stage: %d  |  Time: %s", cleared, t);
+
     al_draw_text(font_ui, al_map_rgb(255, 255, 255), W / 2, 210, ALLEGRO_ALIGN_CENTER, "Enter your name and press ENTER");
 
     char line[64];

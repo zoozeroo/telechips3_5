@@ -77,9 +77,9 @@ bool assets_load(void) {
     
     icon_sleeping = al_create_sub_bitmap(spr_items, P0X, P0Y, PWH, PWH);
     
-    icon_people1 = al_create_sub_bitmap(spr_items, P0X, P1Y, PWH, PWH);
-    icon_people2 = al_create_sub_bitmap(spr_items, P0X, P2Y, PWH, PWH);
-    icon_people3 = al_create_sub_bitmap(spr_items, P0X, P3Y, PWH, PWH);
+    icon_people1 = al_create_sub_bitmap(spr_items, P0X, P1Y, PWH, PWH); // 원거리
+    icon_people2 = al_create_sub_bitmap(spr_items, P0X, P2Y, PWH, PWH); // 보조
+    icon_people3 = al_create_sub_bitmap(spr_items, P0X, P3Y, PWH, PWH); // 탱커
     icon_people1_1 = al_create_sub_bitmap(spr_items, P1X, P1Y, PWH, PWH);
     icon_people2_1 = al_create_sub_bitmap(spr_items, P1X, P2Y, PWH, PWH);
     icon_people3_1 = al_create_sub_bitmap(spr_items, P1X, P3Y, PWH, PWH);
