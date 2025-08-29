@@ -33,6 +33,12 @@ ALLEGRO_BITMAP* icon_lifegauge6 = NULL;
 ALLEGRO_BITMAP* icon_people1_1 = NULL;
 ALLEGRO_BITMAP* icon_people2_1 = NULL;
 ALLEGRO_BITMAP* icon_people3_1 = NULL;
+ALLEGRO_BITMAP* icon_bombeffect1 = NULL;
+ALLEGRO_BITMAP* icon_bombeffect2 = NULL;
+ALLEGRO_BITMAP* icon_bombeffect3 = NULL;
+ALLEGRO_BITMAP* icon_frozen1 = NULL;
+ALLEGRO_BITMAP* icon_frozen2 = NULL;
+ALLEGRO_BITMAP* icon_frozen3 = NULL;
 
 
 bool assets_load(void) {
@@ -51,10 +57,8 @@ bool assets_load(void) {
     const int C2X = 36, C2Y = 150;
     const int C3X = 62, C3Y = 150;
     const int P0X = 91, P0Y = 3, PWH = 34;
-    const int P1Y = 39;
-    const int P2Y = 75;
-    const int P3Y = 111;
-    const int P1X = 127;
+    const int P1X = 127, P1Y = 39, P2Y = 75, P3Y = 111;
+    const int FPX1 = 163, FPX2 = 91, FPY1 = 39, FPY2 = 3, FPWH = 33;
     const int V1X = 7, V1Y = 2;
     const int V2Y = 39;
     const int V3Y = 76;
@@ -63,6 +67,9 @@ bool assets_load(void) {
     const int BW = 9, BH = 9;
     const int B1X = 32, B2X = 44, B3X = 56, BY = 185;
     const int L1X = 89, L2X = 132, L1Y = 152, L2Y = 165, L3Y = 178, LW = 40, LH = 10;
+    const int BOMBX1 = 177, BOMBX2 = 171, BOMBX3 = 172,
+        BOMBY1 = 74, BOMBY2 = 95, BOMBY3 = 171,
+        BWH1 = 18, BWH2 = 29, BWH3 = 26;
 
     icon_coffee_1 = al_create_sub_bitmap(spr_items, C1X, C1Y, CWH, CWH);
     icon_coffee_2 = al_create_sub_bitmap(spr_items, C2X, C2Y, CWH, CWH);
@@ -94,8 +101,14 @@ bool assets_load(void) {
     icon_lifegauge4 = al_create_sub_bitmap(spr_items, L2X, L2Y, LW, LH); // 2Ä­
     icon_lifegauge5 = al_create_sub_bitmap(spr_items, L1X, L3Y, LW, LH); // 1Ä­
     icon_lifegauge6 = al_create_sub_bitmap(spr_items, L2X, L3Y, LW, LH); // 0Ä­
-    
 
+    icon_bombeffect1 = al_create_sub_bitmap(spr_items, BOMBX1, BOMBY1, BWH1, BWH1); // ÆøÅº ¹ÙÀÌ·¯½º ÅÍÁú ¶§ ÀÌÆåÆ®
+    icon_bombeffect2 = al_create_sub_bitmap(spr_items, BOMBX2, BOMBY2, BWH2, BWH2);
+    icon_bombeffect3 = al_create_sub_bitmap(spr_items, BOMBX3, BOMBY3, BWH3, BWH3);
+
+    icon_frozen1 = al_create_sub_bitmap(spr_items, FPX1, FPY1, FPWH, FPWH);
+    icon_frozen2 = al_create_sub_bitmap(spr_items, FPX1, FPY2, FPWH, FPWH);
+    icon_frozen3 = al_create_sub_bitmap(spr_items, FPX2, FPY2, FPWH, FPWH);
     if (!bullet_1 || !bullet_2 || !bullet_3) return false; // ÃÑ¾Ë ÀÌ¹ÌÁö Ã¼Å©
 
     return true;
@@ -127,6 +140,12 @@ void assets_unload(void) {
     if (icon_lifegauge4) al_destroy_bitmap(icon_lifegauge4);
     if (icon_lifegauge5) al_destroy_bitmap(icon_lifegauge5);
     if (icon_lifegauge6) al_destroy_bitmap(icon_lifegauge6);
+    if (icon_bombeffect1) al_destroy_bitmap(icon_bombeffect1);
+    if (icon_bombeffect2) al_destroy_bitmap(icon_bombeffect2);
+    if (icon_bombeffect3) al_destroy_bitmap(icon_bombeffect3);
+    if (icon_frozen1) al_destroy_bitmap(icon_frozen1);
+    if (icon_frozen2) al_destroy_bitmap(icon_frozen2);
+    if (icon_frozen3) al_destroy_bitmap(icon_frozen3);
     if (spr_items) al_destroy_bitmap(spr_items);
 
     if (bg_home) al_destroy_bitmap(bg_home);
@@ -144,5 +163,7 @@ void assets_unload(void) {
     icon_people1_1 = icon_people2_1 = icon_people3_1 = NULL;
     icon_lifegauge1 = icon_lifegauge2 = icon_lifegauge3 = NULL;
     icon_lifegauge4 = icon_lifegauge5 = icon_lifegauge6 = NULL;
+    icon_bombeffect1 = icon_bombeffect2 = icon_bombeffect3 = NULL;
+    icon_frozen1 = icon_frozen2 = icon_frozen3 = NULL;
     font_title = font_ui = NULL;
 }

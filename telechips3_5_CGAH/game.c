@@ -1,11 +1,12 @@
 #include "game.h"
 #include "assets.h"
+#include <stdio.h>
 #include <math.h>
 #include <stdlib.h>
 #include <time.h>
 #include <allegro5/allegro.h>
 #include <allegro5/allegro_primitives.h>
-#include <allegro5/allegro_font.h>   // 배너 텍스트 출력용
+#include <allegro5/allegro_font.h>   // 배너/이펙트 출력용
 
 // ───────── 그리드 레이아웃 ─────────
 #define CELL_W 102
@@ -24,6 +25,15 @@ static double last_enemy_spawn_time = 0.0;
 static bool   stage_banner_active = false;
 static double stage_banner_until = 0.0;
 static int    stage_banner_stage = 0;
+
+// ── BOMB 폭발 이펙트 ──
+#define MAX_BOMB_FX 32
+typedef struct {
+    bool   active;
+    float  x, y;
+    double start_time;
+} BombFX;
+static BombFX g_bombfx[MAX_BOMB_FX];
 
 // ───────── 유틸 ─────────
 static inline int tower_max_hp(TowerType t) {
@@ -47,17 +57,36 @@ static float distancef(float x1, float y1, float x2, float y2) {
 
 static inline bool anim_blink_1s(void) { return (((int)al_get_time()) % 2) == 0; }
 
-static ALLEGRO_BITMAP* tower_anim_frame(TowerType t) {
+static ALLEGRO_BITMAP* tower_anim_frame(const Tower* cell) {
+    const TowerType t = cell ? cell->type : TOWER_EMPTY;
+
+    // 비어있는 칸
+    if (t == TOWER_EMPTY) return icon_sleeping;
+
+    // ★ 얼어있는 동안은 타입별 frozen 아이콘으로 고정 표시
+    if (cell && cell->freeze_stacks > 0) {
+        switch (t) {
+        case TOWER_ATTACK:   return icon_frozen1;
+        case TOWER_RESOURCE: return icon_frozen2;
+        case TOWER_TANK:     return icon_frozen3; // 탱커는 기능 변화는 없지만 시각적으로만 얼림 표시
+        default:             return icon_sleeping;
+        }
+    }
+
+    // 평상시 애니메이션
     bool blink = anim_blink_1s();
     switch (t) {
-    case TOWER_EMPTY:    return icon_sleeping;
-    case TOWER_ATTACK:   return blink ? (icon_people1 ? icon_people1 : icon_sleeping)
-        : (icon_people1_1 ? icon_people1_1 : icon_people1);
-    case TOWER_RESOURCE: return blink ? (icon_people2 ? icon_people2 : icon_sleeping)
-        : (icon_people2_1 ? icon_people2_1 : icon_people2);
-    case TOWER_TANK:     return blink ? (icon_people3 ? icon_people3 : icon_sleeping)
-        : (icon_people3_1 ? icon_people3_1 : icon_people3);
-    default:             return icon_sleeping;
+    case TOWER_ATTACK:
+        return blink ? (icon_people1 ? icon_people1 : icon_sleeping)
+            : (icon_people1_1 ? icon_people1_1 : icon_people1);
+    case TOWER_RESOURCE:
+        return blink ? (icon_people2 ? icon_people2 : icon_sleeping)
+            : (icon_people2_1 ? icon_people2_1 : icon_people2);
+    case TOWER_TANK:
+        return blink ? (icon_people3 ? icon_people3 : icon_sleeping)
+            : (icon_people3_1 ? icon_people3_1 : icon_people3);
+    default:
+        return icon_sleeping;
     }
 }
 
@@ -72,6 +101,7 @@ static void clear_all_enemies(void) {
         enemies[i].type = ET_FAST;      // 기본값
         enemies[i].speed = 0.0f;
         enemies[i].fuse_timer = 0.0f;
+        enemies[i].freeze_link_count = 0; // ★ FREEZER 링크 초기화
     }
 }
 static void clear_all_bullets(void) {
@@ -83,8 +113,12 @@ static void clear_all_towers(void) {
             grid[r][c].type = TOWER_EMPTY;
             grid[r][c].hp = 0;
             grid[r][c].cooldown = 0.0f;
+            grid[r][c].freeze_stacks = 0; // ★ 얼림 해제
         }
     }
+}
+static void clear_all_bombfx(void) {
+    for (int i = 0; i < MAX_BOMB_FX; ++i) g_bombfx[i].active = false;
 }
 static void begin_stage_banner(int stage) {
     stage_banner_stage = stage;
@@ -120,6 +154,7 @@ static void spawn_enemy(void) {
             // 타입별 스탯 설정
             e->atk_cooldown = 0.0f;
             e->fuse_timer = 0.0f;
+            e->freeze_link_count = 0; // ★ FREEZER 링크 초기화
             switch (e->type) {
             case ET_FAST:   e->hp = FAST_HP;   e->speed = FAST_SPEED;   break;
             case ET_TANK:   e->hp = TANK_HP;   e->speed = TANK_SPEED;   break;
@@ -129,6 +164,21 @@ static void spawn_enemy(void) {
             break;
         }
     }
+}
+
+// ★ 스테이지별 스폰 규칙: (interval 초마다 count마리)
+static void get_stage_spawn_rule(int stage, float* interval_out, int* count_out) {
+    float interval = 1.0f;
+    int count = 1;
+
+    if (stage <= 1) { interval = 3.0f; count = 1; }
+    else if (stage == 2) { interval = 3.0f; count = 2; }
+    else if (stage == 3) { interval = 2.0f; count = 1; }
+    else if (stage == 4) { interval = 1.5f; count = 1; }
+    else { interval = 1.0f; count = 1; }
+
+    if (interval_out) *interval_out = interval;
+    if (count_out) *count_out = count;
 }
 
 static int spawn_bullet(float sx, float sy, int enemy_index) {
@@ -160,6 +210,110 @@ static bool circle_rect_overlap(float cx, float cy, float r, float rx1, float ry
     return (dx * dx + dy * dy) <= r * r;
 }
 
+// ★ 폭탄 적 사망 시 폭발 효과: 반경 내 타워 HP 절반으로 감소
+static void bomber_explode(float ex, float ey) {
+    for (int r = 0; r < GRID_ROWS; ++r) {
+        for (int c = 0; c < GRID_COLS; ++c) {
+            Tower* t = &grid[r][c];
+            if (t->type == TOWER_EMPTY) continue;
+
+            float x1, y1, x2, y2;
+            cell_rect(r, c, &x1, &y1, &x2, &y2);
+            float cx = (x1 + x2) * 0.5f;
+            float cy = (y1 + y2) * 0.5f;
+
+            if (distancef(ex, ey, cx, cy) <= BOMB_RADIUS) {
+                t->hp = t->hp / 2;           // 절반만 남김
+                if (t->hp <= 0) {
+                    t->type = TOWER_EMPTY;
+                    t->hp = 0;
+                    t->cooldown = 0.0f;
+                    t->freeze_stacks = 0;    // 혹시 얼려져 있던 것 초기화
+                }
+            }
+        }
+    }
+}
+
+// ★ 폭발 이펙트 스폰/업데이트/그리기
+static void spawn_bomb_fx(float x, float y) {
+    for (int i = 0; i < MAX_BOMB_FX; ++i) {
+        if (!g_bombfx[i].active) {
+            g_bombfx[i].active = true;
+            g_bombfx[i].x = x;
+            g_bombfx[i].y = y;
+            g_bombfx[i].start_time = al_get_time();
+            return;
+        }
+    }
+}
+static void update_bomb_fx(void) {
+    double now = al_get_time();
+    for (int i = 0; i < MAX_BOMB_FX; ++i) {
+        if (!g_bombfx[i].active) continue;
+        if (now - g_bombfx[i].start_time >= 1.0) { // 1초 지속
+            g_bombfx[i].active = false;
+        }
+    }
+}
+static void draw_bomb_fx(void) {
+    double now = al_get_time();
+    for (int i = 0; i < MAX_BOMB_FX; ++i) {
+        if (!g_bombfx[i].active) continue;
+
+        double t = now - g_bombfx[i].start_time; // [0,1]
+        ALLEGRO_BITMAP* fx = NULL;
+        if (t < 1.0 / 3.0)       fx = icon_bombeffect1;
+        else if (t < 2.0 / 3.0)  fx = icon_bombeffect2;
+        else                   fx = icon_bombeffect3;
+
+        if (fx) {
+            float sw = (float)al_get_bitmap_width(fx);
+            float sh = (float)al_get_bitmap_height(fx);
+            float scale = 2.5f; // 이펙트 크기
+            float dw = sw * scale, dh = sh * scale;
+            al_draw_scaled_bitmap(
+                fx, 0, 0, sw, sh,
+                g_bombfx[i].x - dw * 0.5f,
+                g_bombfx[i].y - dh * 0.5f,
+                dw, dh, 0
+            );
+        }
+        else {
+            al_draw_filled_circle(g_bombfx[i].x, g_bombfx[i].y, 30.0f, al_map_rgb(255, 255, 255));
+        }
+    }
+}
+
+// ───────── FREEZER 유틸 ─────────
+static bool freezer_has_link(Enemy* e, int r, int c) {
+    for (int i = 0; i < e->freeze_link_count; ++i) {
+        if (e->freeze_links[i].r == r && e->freeze_links[i].c == c) return true;
+    }
+    return false;
+}
+static void freezer_add_link(Enemy* e, int r, int c) {
+    if (e->freeze_link_count >= FREEZER_MAX_LINKS) return;
+    if (freezer_has_link(e, r, c)) return;
+
+    int idx = e->freeze_link_count;
+    e->freeze_links[idx].r = r;
+    e->freeze_links[idx].c = c;
+    e->freeze_link_count = idx + 1;
+
+    grid[r][c].freeze_stacks += 1;
+}
+static void freezer_clear_links(Enemy* e) {
+    for (int i = 0; i < e->freeze_link_count; ++i) {
+        int r = e->freeze_links[i].r;
+        int c = e->freeze_links[i].c;
+        if (r >= 0 && r < GRID_ROWS && c >= 0 && c < GRID_COLS) {
+            if (grid[r][c].freeze_stacks > 0) grid[r][c].freeze_stacks -= 1;
+        }
+    }
+    e->freeze_link_count = 0;
+}
+
 // ───────── 콜백: 적 처치 ─────────
 static void on_enemy_killed(void) {
     game_state.stage_kills++;
@@ -169,6 +323,7 @@ static void on_enemy_killed(void) {
             game_state.cleared = true;
             clear_all_enemies();
             clear_all_bullets();
+            clear_all_bombfx();
             return;
         }
 
@@ -176,6 +331,7 @@ static void on_enemy_killed(void) {
         clear_all_enemies();
         clear_all_bullets();
         clear_all_towers();
+        clear_all_bombfx();
 
         game_state.stage++;
         game_state.stage_kills = 0;
@@ -192,6 +348,7 @@ void game_init(void) {
     clear_all_towers();
     clear_all_enemies();
     clear_all_bullets();
+    clear_all_bombfx();
 
     game_state.caffeine = STARTING_CAFFEINE; // ★ 시작 재화
     game_state.lives = 5;
@@ -206,6 +363,7 @@ void game_init(void) {
 void game_reset(void) {
     clear_all_enemies();
     clear_all_bullets();
+    clear_all_bombfx();
     game_state.game_over = false;
     game_state.cleared = false;
 }
@@ -224,12 +382,21 @@ void game_update(float dt) {
     // ── 타워 로직 ──
     for (int r = 0; r < GRID_ROWS; ++r) {
         for (int c = 0; c < GRID_COLS; ++c) {
+            bool is_attack = (grid[r][c].type == TOWER_ATTACK);
+            bool is_resource = (grid[r][c].type == TOWER_RESOURCE);
+            bool frozen = (grid[r][c].freeze_stacks > 0) && (is_attack || is_resource);
+
+            // 쿨다운 진행
+            if (grid[r][c].cooldown > 0.0f) {
+                if (!frozen) grid[r][c].cooldown -= dt;  // 얼려졌으면 쿨다운도 멈춤
+            }
+
+            if (frozen) continue; // 얼려진 동안은 기능 정지
+
             float tcx = GRID_X + c * CELL_W + CELL_W * 0.5f;
             float tcy = GRID_Y + r * CELL_H + CELL_H * 0.5f;
 
-            if (grid[r][c].cooldown > 0.0f) grid[r][c].cooldown -= dt;
-
-            if (grid[r][c].type == TOWER_ATTACK && grid[r][c].cooldown <= 0.0f) {
+            if (is_attack && grid[r][c].cooldown <= 0.0f) {
                 Enemy* target = NULL; int target_index = -1;
                 float best = ATTACK_TOWER_RANGE;
                 for (int i = 0; i < MAX_ENEMIES; ++i) {
@@ -242,7 +409,7 @@ void game_update(float dt) {
                     grid[r][c].cooldown = ATTACK_TOWER_COOLDOWN;
                 }
             }
-            else if (grid[r][c].type == TOWER_RESOURCE && grid[r][c].cooldown <= 0.0f) {
+            else if (is_resource && grid[r][c].cooldown <= 0.0f) {
                 game_state.caffeine += RESOURCE_TOWER_AMOUNT;
                 grid[r][c].cooldown = RESOURCE_TOWER_COOLDOWN;
             }
@@ -255,6 +422,26 @@ void game_update(float dt) {
 
         if (enemies[i].atk_cooldown > 0.0f) enemies[i].atk_cooldown -= dt;
 
+        // FREEZER: 충돌 시 타워 얼림 부여(지속)
+        if (enemies[i].type == ET_FREEZER) {
+            for (int r = 0; r < GRID_ROWS; ++r) {
+                for (int c = 0; c < GRID_COLS; ++c) {
+                    Tower* t = &grid[r][c];
+                    if (!(t->type == TOWER_ATTACK || t->type == TOWER_RESOURCE)) continue; // 탱커/빈칸 제외
+
+                    float x1, y1, x2, y2; cell_rect(r, c, &x1, &y1, &x2, &y2);
+                    float cx = (x1 + x2) * 0.5f, cy = (y1 + y2) * 0.5f;
+                    float d = distancef(enemies[i].x, enemies[i].y, cx, cy);
+
+                    // "충돌" 판정: 기존 적 공격 사거리 사용
+                    if (d <= ENEMY_ATTACK_RANGE) {
+                        freezer_add_link(&enemies[i], r, c);
+                    }
+                }
+            }
+        }
+
+        // 일반 타워 타겟팅 및 공격
         Tower* target_cell = NULL;
         float best_d = ENEMY_ATTACK_RANGE;
 
@@ -276,12 +463,15 @@ void game_update(float dt) {
                     target_cell->type = TOWER_EMPTY;
                     target_cell->cooldown = 0.0f;
                     target_cell->hp = 0;
+                    target_cell->freeze_stacks = 0; // 파괴 시 얼림도 리셋
                 }
             }
         }
         else {
             enemies[i].x -= enemies[i].speed * dt;
             if (enemies[i].x <= GRID_X - 20) {
+                // ★ 화면 밖으로 빠져 비활성화되기 전 FREEZER 얼림 해제
+                if (enemies[i].type == ET_FREEZER) freezer_clear_links(&enemies[i]);
                 enemies[i].active = false;
                 game_state.lives--;
                 if (game_state.lives <= 0) game_state.game_over = true;
@@ -289,11 +479,21 @@ void game_update(float dt) {
         }
     }
 
-    // ── 적 스폰(2초 간격) ──
-    if (game_state.stage_kills < KILLS_TO_ADVANCE &&
-        (al_get_time() - last_enemy_spawn_time > 2.0)) {
-        spawn_enemy();
-        last_enemy_spawn_time = al_get_time();
+    // ── 적 스폰(스테이지별 규칙) ──
+    {
+        float spawn_interval = 0.0f;
+        int spawn_count = 1;
+        get_stage_spawn_rule(game_state.stage, &spawn_interval, &spawn_count);
+
+        if (game_state.stage_kills < KILLS_TO_ADVANCE &&
+            (al_get_time() - last_enemy_spawn_time) >= spawn_interval) {
+
+            // interval마다 count마리씩 스폰
+            for (int i = 0; i < spawn_count; ++i) {
+                spawn_enemy();
+            }
+            last_enemy_spawn_time = al_get_time();
+        }
     }
 
     // ── 총알 업데이트 ──
@@ -313,18 +513,34 @@ void game_update(float dt) {
         for (int e = 0; e < MAX_ENEMIES; ++e) {
             if (!enemies[e].active) continue;
             float ex = enemies[e].x, ey = enemies[e].y;
+
             if (circle_rect_overlap(b->x, b->y, BULLET_RADIUS, ex - 8, ey - 8, ex + 8, ey + 8)) {
                 enemies[e].hp -= ATTACK_TOWER_DAMAGE;
+
                 if (enemies[e].hp <= 0) {
+                    // ★ BOMB 폭발
+                    if (enemies[e].type == ET_BOMBER) {
+                        bomber_explode(ex, ey);
+                        spawn_bomb_fx(ex, ey);
+                    }
+                    // ★ FREEZER 해제
+                    if (enemies[e].type == ET_FREEZER) {
+                        freezer_clear_links(&enemies[e]);
+                    }
+
                     enemies[e].active = false;
                     game_state.caffeine += 20;
                     on_enemy_killed();
                 }
+
                 b->active = false;
                 break;
             }
         }
     }
+
+    // ── 폭발 이펙트 업데이트 ──
+    update_bomb_fx();
 }
 
 // 메인 그리기
@@ -338,7 +554,7 @@ void game_draw_grid(int W, int H, int cursor_col, int cursor_row, bool show_rang
             float cx = (x1 + x2) * 0.5f;
             float cy = (y1 + y2) * 0.5f;
 
-            ALLEGRO_BITMAP* tower_sprite = tower_anim_frame(grid[r][c].type);
+            ALLEGRO_BITMAP* tower_sprite = tower_anim_frame(&grid[r][c]);
             if (tower_sprite) {
                 float sw = (float)al_get_bitmap_width(tower_sprite);
                 float sh = (float)al_get_bitmap_height(tower_sprite);
@@ -406,6 +622,9 @@ void game_draw_grid(int W, int H, int cursor_col, int cursor_row, bool show_rang
         al_draw_filled_rectangle(ex1, ey1, ex1 + (ex2 - ex1) * er, ey2, al_map_rgb(120, 220, 120));
     }
 
+    // ── 폭발 이펙트 그리기 (적/타워 위로) ──
+    draw_bomb_fx();
+
     // ── 공격 범위 ──
     if (show_ranges) {
         for (int r = 0; r < GRID_ROWS; ++r) {
@@ -437,15 +656,22 @@ void game_draw_grid(int W, int H, int cursor_col, int cursor_row, bool show_rang
     for (int i = 0; i < MAX_BULLETS; ++i) {
         if (!bullets[i].active) continue;
         ALLEGRO_BITMAP* bullet_img = NULL;
-    switch (bullets[i].image_type) { case 0: bullet_img = bullet_1; break; case 1: bullet_img = bullet_2; break; default: bullet_img = bullet_3; break; }
+        switch (bullets[i].image_type) {
+        case 0: bullet_img = bullet_1; break;
+        case 1: bullet_img = bullet_2; break;
+        default: bullet_img = bullet_3; break;
+        }
         if (bullet_img) {
-        float iw = (float)al_get_bitmap_width(bullet_img);
-        float ih = (float)al_get_bitmap_height(bullet_img);
-        float scale = 3.0f;
-        al_draw_scaled_bitmap(bullet_img, 0, 0, iw, ih, bullets[i].x - (iw * 0.5f), bullets[i].y - (ih * 0.5f), iw * scale, ih * scale, 0);
+            float iw = (float)al_get_bitmap_width(bullet_img);
+            float ih = (float)al_get_bitmap_height(bullet_img);
+            float scale = 3.0f;
+            al_draw_scaled_bitmap(bullet_img, 0, 0, iw, ih,
+                bullets[i].x - (iw * 0.5f),
+                bullets[i].y - (ih * 0.5f),
+                iw * scale, ih * scale, 0);
         }
         else {
-        al_draw_filled_circle(bullets[i].x, bullets[i].y, BULLET_RADIUS, al_map_rgb(255, 255, 255));
+            al_draw_filled_circle(bullets[i].x, bullets[i].y, BULLET_RADIUS, al_map_rgb(255, 255, 255));
         }
     }
 
@@ -481,6 +707,7 @@ void game_place_tower(TowerType type, int row, int col) {
         grid[row][col].type = type;
         grid[row][col].cooldown = 0.0f;
         grid[row][col].hp = tower_max_hp(type);
+        grid[row][col].freeze_stacks = 0; // 새 타워는 비얼림 상태
     }
 }
 
@@ -498,6 +725,7 @@ void game_sell_tower(int row, int col) {
     t->type = TOWER_EMPTY;
     t->hp = 0;
     t->cooldown = 0.0f;
+    t->freeze_stacks = 0;
 }
 
 GameState game_get_state(void) {
