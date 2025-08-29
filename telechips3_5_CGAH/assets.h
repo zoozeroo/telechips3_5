@@ -49,5 +49,15 @@ extern ALLEGRO_BITMAP* icon_people1_1;
 extern ALLEGRO_BITMAP* icon_people2_1;
 extern ALLEGRO_BITMAP* icon_people3_1;
 
+//폭발하는 적의 폭발 이펙트
+extern ALLEGRO_BITMAP* icon_bombeffect1;
+extern ALLEGRO_BITMAP* icon_bombeffect2;
+extern ALLEGRO_BITMAP* icon_bombeffect3;
+
+//얼리는 적 얼림 이펙트
+extern ALLEGRO_BITMAP* icon_frozen1;
+extern ALLEGRO_BITMAP* icon_frozen2;
+extern ALLEGRO_BITMAP* icon_frozen3;
+
 bool assets_load(void);
 void assets_unload(void);
