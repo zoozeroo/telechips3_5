@@ -1,14 +1,15 @@
-#include "game.h"
+ï»¿#include "game.h"
 #include "assets.h"
-#include <stdio.h>
+
 #include <math.h>
 #include <stdlib.h>
 #include <time.h>
+#include <stdio.h>                  // snprintf ì‚¬ìš©
 #include <allegro5/allegro.h>
 #include <allegro5/allegro_primitives.h>
-#include <allegro5/allegro_font.h>   // ¹è³Ê/ÀÌÆåÆ® Ãâ·Â¿ë
+#include <allegro5/allegro_font.h>
 
-// ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡ ±×¸®µå ·¹ÀÌ¾Æ¿ô ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€ ê·¸ë¦¬ë“œ ë ˆì´ì•„ì›ƒ â”€â”€â”€â”€â”€â”€â”€â”€â”€
 #define CELL_W 102
 #define CELL_H 102
 #define GRID_X 21
@@ -19,89 +20,77 @@ static Enemy  enemies[MAX_ENEMIES];
 static Bullet bullets[MAX_BULLETS];
 static GameState game_state;
 
+// ìŠ¤í° íƒ€ì´ë°
 static double last_enemy_spawn_time = 0.0;
 
-// ¦¡¦¡ ½ºÅ×ÀÌÁö ¹è³Ê »óÅÂ (2ÃÊ µ¿¾È °ÔÀÓ ÀÏ½Ã Á¤Áö) ¦¡¦¡
+// â”€â”€ í­ë°œ ì´í™íŠ¸(1ì´ˆ ë™ì•ˆ icon_bombeffect1â†’2â†’3) â”€â”€
+typedef struct {
+    bool active;
+    float x, y;
+    double t0;       // ì‹œì‘ ì‹œê°
+    double dur;      // ì§€ì† ì‹œê°„(1.0s)
+} BombFx;
+#define MAX_BOMB_FX 32
+static BombFx g_bomb_fx[MAX_BOMB_FX];
+
+// â”€â”€ ìŠ¤í…Œì´ì§€ ë°°ë„ˆ(ìš”ì²­ êµ¬í˜„ ìœ ì§€) â”€â”€
 static bool   stage_banner_active = false;
 static double stage_banner_until = 0.0;
 static int    stage_banner_stage = 0;
 
-// ¦¡¦¡ BOMB Æø¹ß ÀÌÆåÆ® ¦¡¦¡
-#define MAX_BOMB_FX 32
-typedef struct {
-    bool   active;
-    float  x, y;
-    double start_time;
-} BombFX;
-static BombFX g_bombfx[MAX_BOMB_FX];
-
-// ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡ À¯Æ¿ ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€ ìœ í‹¸ â”€â”€â”€â”€â”€â”€â”€â”€â”€
 static inline int tower_max_hp(TowerType t) {
     if (t == TOWER_ATTACK)   return ATTACK_TOWER_HP;
     if (t == TOWER_RESOURCE) return RESOURCE_TOWER_HP;
     if (t == TOWER_TANK)     return TANK_TOWER_HP;
     return 0;
 }
-
 static void cell_rect(int row, int col, float* x1, float* y1, float* x2, float* y2) {
     *x1 = GRID_X + col * CELL_W;
     *y1 = GRID_Y + row * CELL_H;
     *x2 = *x1 + CELL_W;
     *y2 = *y1 + CELL_H;
 }
-
 static float distancef(float x1, float y1, float x2, float y2) {
     float dx = x2 - x1, dy = y2 - y1;
     return sqrtf(dx * dx + dy * dy);
 }
-
 static inline bool anim_blink_1s(void) { return (((int)al_get_time()) % 2) == 0; }
 
-static ALLEGRO_BITMAP* tower_anim_frame(const Tower* cell) {
-    const TowerType t = cell ? cell->type : TOWER_EMPTY;
-
-    // ºñ¾îÀÖ´Â Ä­
-    if (t == TOWER_EMPTY) return icon_sleeping;
-
-    // ¡Ú ¾ó¾îÀÖ´Â µ¿¾ÈÀº Å¸ÀÔº° frozen ¾ÆÀÌÄÜÀ¸·Î °íÁ¤ Ç¥½Ã
-    if (cell && cell->freeze_stacks > 0) {
-        switch (t) {
+static ALLEGRO_BITMAP* tower_anim_frame(const Tower* t) {
+    // ì–¼ìŒ ìƒíƒœë©´ ì¢…ë¥˜ë³„ë¡œ ì–¼ìŒ ì•„ì´ì½˜ ê³ ì • í‘œì‹œ
+    if (t->freeze_stacks > 0) {
+        switch (t->type) {
         case TOWER_ATTACK:   return icon_frozen1;
         case TOWER_RESOURCE: return icon_frozen2;
-        case TOWER_TANK:     return icon_frozen3; // ÅÊÄ¿´Â ±â´É º¯È­´Â ¾øÁö¸¸ ½Ã°¢ÀûÀ¸·Î¸¸ ¾ó¸² Ç¥½Ã
+        case TOWER_TANK:     return icon_frozen3;  // â˜… íƒ±ì»¤ë„ í™•ì‹¤íˆ ì–¼ìŒ ì•„ì´ì½˜ ì ìš©
         default:             return icon_sleeping;
         }
     }
-
-    // Æò»ó½Ã ¾Ö´Ï¸ŞÀÌ¼Ç
+    // í‰ìƒì‹œ ì• ë‹ˆë©”ì´ì…˜
     bool blink = anim_blink_1s();
-    switch (t) {
-    case TOWER_ATTACK:
-        return blink ? (icon_people1 ? icon_people1 : icon_sleeping)
-            : (icon_people1_1 ? icon_people1_1 : icon_people1);
-    case TOWER_RESOURCE:
-        return blink ? (icon_people2 ? icon_people2 : icon_sleeping)
-            : (icon_people2_1 ? icon_people2_1 : icon_people2);
-    case TOWER_TANK:
-        return blink ? (icon_people3 ? icon_people3 : icon_sleeping)
-            : (icon_people3_1 ? icon_people3_1 : icon_people3);
-    default:
-        return icon_sleeping;
+    switch (t->type) {
+    case TOWER_EMPTY:    return icon_sleeping;
+    case TOWER_ATTACK:   return blink ? (icon_people1 ? icon_people1 : icon_sleeping)
+        : (icon_people1_1 ? icon_people1_1 : icon_people1);
+    case TOWER_RESOURCE: return blink ? (icon_people2 ? icon_people2 : icon_sleeping)
+        : (icon_people2_1 ? icon_people2_1 : icon_people2);
+    case TOWER_TANK:     return blink ? (icon_people3 ? icon_people3 : icon_sleeping)
+        : (icon_people3_1 ? icon_people3_1 : icon_people3);
+    default:             return icon_sleeping;
     }
 }
 
-// ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡ ÃÊ±âÈ­ ÇïÆÛ ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡
 static void clear_all_enemies(void) {
     for (int i = 0; i < MAX_ENEMIES; ++i) {
         enemies[i].active = false;
-        enemies[i].x = 0.0f;
-        enemies[i].y = 0.0f;
+        enemies[i].x = enemies[i].y = 0.0f;
         enemies[i].hp = 0;
         enemies[i].atk_cooldown = 0.0f;
-        enemies[i].type = ET_FAST;      // ±âº»°ª
+        enemies[i].type = ET_FAST;
         enemies[i].speed = 0.0f;
         enemies[i].fuse_timer = 0.0f;
-        enemies[i].freeze_link_count = 0; // ¡Ú FREEZER ¸µÅ© ÃÊ±âÈ­
+        enemies[i].freeze_link_count = 0;
     }
 }
 static void clear_all_bullets(void) {
@@ -113,48 +102,60 @@ static void clear_all_towers(void) {
             grid[r][c].type = TOWER_EMPTY;
             grid[r][c].hp = 0;
             grid[r][c].cooldown = 0.0f;
-            grid[r][c].freeze_stacks = 0; // ¡Ú ¾ó¸² ÇØÁ¦
+            grid[r][c].freeze_stacks = 0;
         }
     }
 }
-static void clear_all_bombfx(void) {
-    for (int i = 0; i < MAX_BOMB_FX; ++i) g_bombfx[i].active = false;
+static void clear_all_fx(void) {
+    for (int i = 0; i < MAX_BOMB_FX; ++i) g_bomb_fx[i].active = false;
 }
+
 static void begin_stage_banner(int stage) {
     stage_banner_stage = stage;
     stage_banner_active = true;
-    stage_banner_until = al_get_time() + 2.0;    // ¡Ú 2ÃÊ
-    last_enemy_spawn_time = stage_banner_until;   // ¹è³Ê ³¡³­ Á÷ÈÄºÎÅÍ ½ºÆù Å¸ÀÌ¹Ö Ä«¿îÆ®
+    stage_banner_until = al_get_time() + 2.0;
+    last_enemy_spawn_time = stage_banner_until;
 }
 
-// ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡ Àû/ÃÑ¾Ë ½ºÆù ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡
+static void spawn_bomb_fx(float x, float y) {
+    for (int i = 0; i < MAX_BOMB_FX; ++i) {
+        if (!g_bomb_fx[i].active) {
+            g_bomb_fx[i].active = true;
+            g_bomb_fx[i].x = x;
+            g_bomb_fx[i].y = y;
+            g_bomb_fx[i].t0 = al_get_time();
+            g_bomb_fx[i].dur = 1.0; // 1ì´ˆ
+            return;
+        }
+    }
+}
+
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€ ìŠ¤í° â”€â”€â”€â”€â”€â”€â”€â”€â”€
 static void spawn_enemy(void) {
     for (int i = 0; i < MAX_ENEMIES; ++i) {
         if (!enemies[i].active) {
             Enemy* e = &enemies[i];
             e->active = true;
 
-            // ¿À¸¥ÂÊ ³¡°¡ÀåÀÚ¸® ½ÃÀÛ
+            // ì˜¤ë¥¸ìª½ ê°€ì¥ìë¦¬ + ëœë¤ í–‰ ì¤‘ì•™
             float right_edge = GRID_X + GRID_COLS * CELL_W;
             e->x = right_edge + 20.0f;
-
-            // ·£´ı Çà Áß¾Ó¿¡ Á¤È®È÷ ¹èÄ¡
             int row = rand() % GRID_ROWS;
             float x1, y1, x2, y2;
             cell_rect(row, 0, &x1, &y1, &x2, &y2);
             e->y = 0.5f * (y1 + y2);
 
-            // Å¸ÀÔ È®·ü(°¡ÁßÄ¡) ¼³Á¤
+            // ì  ì¶œí˜„ íƒ€ì… í™•ë¥  (ì›í•˜ë©´ ì¡°ì ˆ)
             int r = rand() % 100;
-            if (r < 50)      e->type = ET_FAST;     // 50%
-            else if (r < 85) e->type = ET_TANK;     // 35%
-            else if (r < 95) e->type = ET_BOMBER;   // 10%
-            else             e->type = ET_FREEZER;  // 5%
+            if (r < 30)       e->type = ET_TANK;
+            else if (r < 80)  e->type = ET_FAST;
+            else if (r < 90)  e->type = ET_BOMBER;
+            else              e->type = ET_FREEZER;
 
-            // Å¸ÀÔº° ½ºÅÈ ¼³Á¤
             e->atk_cooldown = 0.0f;
             e->fuse_timer = 0.0f;
-            e->freeze_link_count = 0; // ¡Ú FREEZER ¸µÅ© ÃÊ±âÈ­
+            e->freeze_link_count = 0;
+
             switch (e->type) {
             case ET_FAST:   e->hp = FAST_HP;   e->speed = FAST_SPEED;   break;
             case ET_TANK:   e->hp = TANK_HP;   e->speed = TANK_SPEED;   break;
@@ -166,283 +167,187 @@ static void spawn_enemy(void) {
     }
 }
 
-// ¡Ú ½ºÅ×ÀÌÁöº° ½ºÆù ±ÔÄ¢: (interval ÃÊ¸¶´Ù count¸¶¸®)
-static void get_stage_spawn_rule(int stage, float* interval_out, int* count_out) {
-    float interval = 1.0f;
-    int count = 1;
-
-    if (stage <= 1) { interval = 3.0f; count = 1; }
-    else if (stage == 2) { interval = 3.0f; count = 2; }
-    else if (stage == 3) { interval = 2.0f; count = 1; }
-    else if (stage == 4) { interval = 1.5f; count = 1; }
-    else { interval = 1.0f; count = 1; }
-
-    if (interval_out) *interval_out = interval;
-    if (count_out) *count_out = count;
-}
-
-static int spawn_bullet(float sx, float sy, int enemy_index) {
-    if (enemy_index < 0 || enemy_index >= MAX_ENEMIES || !enemies[enemy_index].active) return -1;
-
-    float tx = enemies[enemy_index].x, ty = enemies[enemy_index].y;
-    float dx = tx - sx, dy = ty - sy;
-    float len = sqrtf(dx * dx + dy * dy);
-    if (len < 1e-4f) { dx = 1.0f; dy = 0.0f; len = 1.0f; }
-    dx /= len; dy /= len;
-
-    for (int i = 0; i < MAX_BULLETS; ++i) {
-        if (!bullets[i].active) {
-            bullets[i].active = true;
-            bullets[i].x = sx; bullets[i].y = sy;
-            bullets[i].vx = dx * BULLET_SPEED;
-            bullets[i].vy = dy * BULLET_SPEED;
-            bullets[i].image_type = rand() % 3;
-            return i;
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€ ìŠ¤í…Œì´íŠ¸ ë³€ê²½/ì½œë°± â”€â”€â”€â”€â”€â”€â”€â”€â”€
+static void on_enemy_killed(Enemy* e) {
+    // FREEZERê°€ ì–¼ë ¤ë‘” íƒ€ì›Œ í•´ì œ
+    if (e->type == ET_FREEZER) {
+        for (int i = 0; i < e->freeze_link_count; ++i) {
+            int r = e->freeze_links[i].r;
+            int c = e->freeze_links[i].c;
+            if (r < 0 || r >= GRID_ROWS || c < 0 || c >= GRID_COLS) continue;
+            if (grid[r][c].freeze_stacks > 0) grid[r][c].freeze_stacks--;
         }
     }
-    return -1;
-}
 
-static bool circle_rect_overlap(float cx, float cy, float r, float rx1, float ry1, float rx2, float ry2) {
-    float nnx = (cx < rx1) ? rx1 : (cx > rx2) ? rx2 : cx;
-    float nny = (cy < ry1) ? ry1 : (cy > ry2) ? ry2 : cy;
-    float dx = cx - nnx, dy = cy - nny;
-    return (dx * dx + dy * dy) <= r * r;
-}
-
-// ¡Ú ÆøÅº Àû »ç¸Á ½Ã Æø¹ß È¿°ú: ¹İ°æ ³» Å¸¿ö HP Àı¹İÀ¸·Î °¨¼Ò
-static void bomber_explode(float ex, float ey) {
-    for (int r = 0; r < GRID_ROWS; ++r) {
-        for (int c = 0; c < GRID_COLS; ++c) {
-            Tower* t = &grid[r][c];
-            if (t->type == TOWER_EMPTY) continue;
-
-            float x1, y1, x2, y2;
-            cell_rect(r, c, &x1, &y1, &x2, &y2);
-            float cx = (x1 + x2) * 0.5f;
-            float cy = (y1 + y2) * 0.5f;
-
-            if (distancef(ex, ey, cx, cy) <= BOMB_RADIUS) {
-                t->hp = t->hp / 2;           // Àı¹İ¸¸ ³²±è
-                if (t->hp <= 0) {
-                    t->type = TOWER_EMPTY;
-                    t->hp = 0;
-                    t->cooldown = 0.0f;
-                    t->freeze_stacks = 0;    // È¤½Ã ¾ó·ÁÁ® ÀÖ´ø °Í ÃÊ±âÈ­
-                }
-            }
-        }
-    }
-}
-
-// ¡Ú Æø¹ß ÀÌÆåÆ® ½ºÆù/¾÷µ¥ÀÌÆ®/±×¸®±â
-static void spawn_bomb_fx(float x, float y) {
-    for (int i = 0; i < MAX_BOMB_FX; ++i) {
-        if (!g_bombfx[i].active) {
-            g_bombfx[i].active = true;
-            g_bombfx[i].x = x;
-            g_bombfx[i].y = y;
-            g_bombfx[i].start_time = al_get_time();
-            return;
-        }
-    }
-}
-static void update_bomb_fx(void) {
-    double now = al_get_time();
-    for (int i = 0; i < MAX_BOMB_FX; ++i) {
-        if (!g_bombfx[i].active) continue;
-        if (now - g_bombfx[i].start_time >= 1.0) { // 1ÃÊ Áö¼Ó
-            g_bombfx[i].active = false;
-        }
-    }
-}
-static void draw_bomb_fx(void) {
-    double now = al_get_time();
-    for (int i = 0; i < MAX_BOMB_FX; ++i) {
-        if (!g_bombfx[i].active) continue;
-
-        double t = now - g_bombfx[i].start_time; // [0,1]
-        ALLEGRO_BITMAP* fx = NULL;
-        if (t < 1.0 / 3.0)       fx = icon_bombeffect1;
-        else if (t < 2.0 / 3.0)  fx = icon_bombeffect2;
-        else                   fx = icon_bombeffect3;
-
-        if (fx) {
-            float sw = (float)al_get_bitmap_width(fx);
-            float sh = (float)al_get_bitmap_height(fx);
-            float scale = 2.5f; // ÀÌÆåÆ® Å©±â
-            float dw = sw * scale, dh = sh * scale;
-            al_draw_scaled_bitmap(
-                fx, 0, 0, sw, sh,
-                g_bombfx[i].x - dw * 0.5f,
-                g_bombfx[i].y - dh * 0.5f,
-                dw, dh, 0
-            );
-        }
-        else {
-            al_draw_filled_circle(g_bombfx[i].x, g_bombfx[i].y, 30.0f, al_map_rgb(255, 255, 255));
-        }
-    }
-}
-
-// ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡ FREEZER À¯Æ¿ ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡
-static bool freezer_has_link(Enemy* e, int r, int c) {
-    for (int i = 0; i < e->freeze_link_count; ++i) {
-        if (e->freeze_links[i].r == r && e->freeze_links[i].c == c) return true;
-    }
-    return false;
-}
-static void freezer_add_link(Enemy* e, int r, int c) {
-    if (e->freeze_link_count >= FREEZER_MAX_LINKS) return;
-    if (freezer_has_link(e, r, c)) return;
-
-    int idx = e->freeze_link_count;
-    e->freeze_links[idx].r = r;
-    e->freeze_links[idx].c = c;
-    e->freeze_link_count = idx + 1;
-
-    grid[r][c].freeze_stacks += 1;
-}
-static void freezer_clear_links(Enemy* e) {
-    for (int i = 0; i < e->freeze_link_count; ++i) {
-        int r = e->freeze_links[i].r;
-        int c = e->freeze_links[i].c;
-        if (r >= 0 && r < GRID_ROWS && c >= 0 && c < GRID_COLS) {
-            if (grid[r][c].freeze_stacks > 0) grid[r][c].freeze_stacks -= 1;
-        }
-    }
-    e->freeze_link_count = 0;
-}
-
-// ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡ Äİ¹é: Àû Ã³Ä¡ ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡
-static void on_enemy_killed(void) {
     game_state.stage_kills++;
     if (game_state.stage_kills >= KILLS_TO_ADVANCE) {
-        // ¸¶Áö¸· ½ºÅ×ÀÌÁö¸é Å¬¸®¾î
-        if (game_state.stage >= MAX_STAGES) {
-            game_state.cleared = true;
-            clear_all_enemies();
-            clear_all_bullets();
-            clear_all_bombfx();
-            return;
-        }
+        // ëª¨ë“  ì  ì œê±°
+        for (int i = 0; i < MAX_ENEMIES; ++i) enemies[i].active = false;
 
-        // ´ÙÀ½ ½ºÅ×ÀÌÁö ÁØºñ: Àû/ÃÑ¾Ë/Å¸¿ö Á¤¸®, ÀçÈ­ ÃÊ±âÈ­, ¹è³Ê 2ÃÊ
-        clear_all_enemies();
+        if (game_state.stage >= MAX_STAGES) { game_state.cleared = true; return; }
+
+        // ë‹¤ìŒ ìŠ¤í…Œì´ì§€: íƒ€ì›Œ/ì´ì•Œ/ì  ì´ˆê¸°í™”, ì¬í™” ë¦¬ì…‹, ë°°ë„ˆ
         clear_all_bullets();
         clear_all_towers();
-        clear_all_bombfx();
-
         game_state.stage++;
         game_state.stage_kills = 0;
-        game_state.caffeine = STARTING_CAFFEINE;   // ¡Ú ÀçÈ­ ÃÊ±âÈ­
-
+        game_state.caffeine = STARTING_CAFFEINE;
         begin_stage_banner(game_state.stage);
     }
 }
 
-// ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡ ÆÛºí¸¯ API ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€ ë™ì‘ êµ¬í˜„(í­ë°œ/ì–¼ë¦¼) â”€â”€â”€â”€â”€â”€â”€â”€â”€
+static void explode_bomb(Enemy* b) {
+    // ì´í™íŠ¸ í‘œì‹œ
+    spawn_bomb_fx(b->x, b->y);
+
+    // ë°˜ê²½ ë‚´ íƒ€ì›Œ HPë¥¼ ì ˆë°˜ìœ¼ë¡œ
+    for (int r = 0; r < GRID_ROWS; ++r) {
+        for (int c = 0; c < GRID_COLS; ++c) {
+            if (grid[r][c].type == TOWER_EMPTY) continue;
+            float x1, y1, x2, y2; cell_rect(r, c, &x1, &y1, &x2, &y2);
+            float cx = (x1 + x2) * 0.5f, cy = (y1 + y2) * 0.5f;
+            if (distancef(b->x, b->y, cx, cy) <= BOMB_RADIUS) {
+                grid[r][c].hp = grid[r][c].hp / 2;     // 50% ê°ì†Œ
+                if (grid[r][c].hp <= 0) {
+                    grid[r][c].type = TOWER_EMPTY;
+                    grid[r][c].cooldown = 0.0f;
+                    grid[r][c].freeze_stacks = 0;
+                }
+            }
+        }
+    }
+
+    // ìŠ¤ìŠ¤ë¡œ ì‚¬ë§ ì²˜ë¦¬
+    b->active = false;
+    on_enemy_killed(b);
+}
+
+static bool freezer_has_link(const Enemy* frz, int r, int c) {
+    for (int i = 0; i < frz->freeze_link_count; ++i) {
+        if (frz->freeze_links[i].r == r && frz->freeze_links[i].c == c) return true;
+    }
+    return false;
+}
+static void freezer_touch_tower(Enemy* frz, int r, int c) {
+    if (r < 0 || r >= GRID_ROWS || c < 0 || c >= GRID_COLS) return;
+    Tower* t = &grid[r][c];
+    if (t->type == TOWER_EMPTY) return;
+
+    // ì´ë¯¸ ì—°ê²°ë¼ ìˆìœ¼ë©´ ì¤‘ë³µ ì¶”ê°€í•˜ì§€ ì•ŠìŒ
+    if (!freezer_has_link(frz, r, c)) {
+        if (frz->freeze_link_count < FREEZER_MAX_LINKS) {
+            frz->freeze_links[frz->freeze_link_count].r = r;
+            frz->freeze_links[frz->freeze_link_count].c = c;
+            frz->freeze_link_count++;
+        }
+        // íƒ€ì…ê³¼ ë¬´ê´€í•˜ê²Œ ì „ë¶€ ì–¼ë¦¼ ìŠ¤íƒ +1 (íƒ±ì»¤ë„ ì•„ì´ì½˜ë§Œ ì–¼ë¦¼ìœ¼ë¡œ)
+        t->freeze_stacks++;
+    }
+}
+
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€ í¼ë¸”ë¦­ API â”€â”€â”€â”€â”€â”€â”€â”€â”€
 void game_init(void) {
     srand((unsigned)time(NULL));
-
     clear_all_towers();
     clear_all_enemies();
     clear_all_bullets();
-    clear_all_bombfx();
+    clear_all_fx();
 
-    game_state.caffeine = STARTING_CAFFEINE; // ¡Ú ½ÃÀÛ ÀçÈ­
+    game_state.caffeine = STARTING_CAFFEINE;
     game_state.lives = 5;
     game_state.stage = 1;
     game_state.stage_kills = 0;
     game_state.cleared = false;
     game_state.game_over = false;
 
-    begin_stage_banner(1); // ¡Ú ½ºÅ×ÀÌÁö 1 ¹è³Ê 2ÃÊ
+    begin_stage_banner(1);
 }
 
 void game_reset(void) {
     clear_all_enemies();
     clear_all_bullets();
-    clear_all_bombfx();
+    clear_all_fx();
+    for (int r = 0; r < GRID_ROWS; ++r)
+        for (int c = 0; c < GRID_COLS; ++c)
+            grid[r][c].freeze_stacks = 0;
     game_state.game_over = false;
     game_state.cleared = false;
 }
 
-// ¸ŞÀÎ ¾÷µ¥ÀÌÆ®
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€ ì—…ë°ì´íŠ¸ â”€â”€â”€â”€â”€â”€â”€â”€â”€
 void game_update(float dt) {
     if (game_state.cleared || game_state.game_over) return;
 
-    // ¦¡¦¡ ¹è³Ê Áß¿£ ¿ÏÀü Á¤Áö ¦¡¦¡
+    // ìŠ¤í…Œì´ì§€ ë°°ë„ˆ ì¤‘ì—ëŠ” ì •ì§€
     if (stage_banner_active) {
         if (al_get_time() < stage_banner_until) return;
-        stage_banner_active = false;               // ¹è³Ê Á¾·á ¡æ ±×¶§ºÎÅÍ Á¤»ó ÁøÇà
+        stage_banner_active = false;
         last_enemy_spawn_time = al_get_time();
     }
 
-    // ¦¡¦¡ Å¸¿ö ·ÎÁ÷ ¦¡¦¡
+    // íƒ€ì›Œ ë¡œì§
     for (int r = 0; r < GRID_ROWS; ++r) {
         for (int c = 0; c < GRID_COLS; ++c) {
-            bool is_attack = (grid[r][c].type == TOWER_ATTACK);
-            bool is_resource = (grid[r][c].type == TOWER_RESOURCE);
-            bool frozen = (grid[r][c].freeze_stacks > 0) && (is_attack || is_resource);
-
-            // Äğ´Ù¿î ÁøÇà
-            if (grid[r][c].cooldown > 0.0f) {
-                if (!frozen) grid[r][c].cooldown -= dt;  // ¾ó·ÁÁ³À¸¸é Äğ´Ù¿îµµ ¸ØÃã
-            }
-
-            if (frozen) continue; // ¾ó·ÁÁø µ¿¾ÈÀº ±â´É Á¤Áö
-
+            Tower* t = &grid[r][c];
             float tcx = GRID_X + c * CELL_W + CELL_W * 0.5f;
             float tcy = GRID_Y + r * CELL_H + CELL_H * 0.5f;
 
-            if (is_attack && grid[r][c].cooldown <= 0.0f) {
-                Enemy* target = NULL; int target_index = -1;
+            if (t->cooldown > 0.0f) t->cooldown -= dt;
+
+            // ì–¼ë ¤ ìˆìœ¼ë©´ ì¼ì ˆ ë™ì‘ ì•ˆ í•¨
+            if (t->freeze_stacks > 0) continue;
+
+            if (t->type == TOWER_ATTACK && t->cooldown <= 0.0f) {
+                Enemy* target = NULL; int target_idx = -1;
                 float best = ATTACK_TOWER_RANGE;
                 for (int i = 0; i < MAX_ENEMIES; ++i) {
                     if (!enemies[i].active) continue;
                     float d = distancef(tcx, tcy, enemies[i].x, enemies[i].y);
-                    if (d < best) { best = d; target = &enemies[i]; target_index = i; }
+                    if (d < best) { best = d; target = &enemies[i]; target_idx = i; }
                 }
                 if (target) {
-                    spawn_bullet(tcx, tcy, target_index);
-                    grid[r][c].cooldown = ATTACK_TOWER_COOLDOWN;
+                    // ì´ì•Œ ë°œì‚¬
+                    float tx = target->x, ty = target->y;
+                    float dx = tx - tcx, dy = ty - tcy;
+                    float len = sqrtf(dx * dx + dy * dy); if (len < 1e-4f) len = 1.0f;
+                    dx /= len; dy /= len;
+                    for (int i = 0; i < MAX_BULLETS; ++i) if (!bullets[i].active) {
+                        bullets[i].active = true;
+                        bullets[i].x = tcx; bullets[i].y = tcy;
+                        bullets[i].vx = dx * BULLET_SPEED;
+                        bullets[i].vy = dy * BULLET_SPEED;
+                        bullets[i].image_type = rand() % 3;
+                        break;
+                    }
+                    t->cooldown = ATTACK_TOWER_COOLDOWN;
                 }
             }
-            else if (is_resource && grid[r][c].cooldown <= 0.0f) {
+            else if (t->type == TOWER_RESOURCE && t->cooldown <= 0.0f) {
                 game_state.caffeine += RESOURCE_TOWER_AMOUNT;
-                grid[r][c].cooldown = RESOURCE_TOWER_COOLDOWN;
+                t->cooldown = RESOURCE_TOWER_COOLDOWN;
             }
         }
     }
 
-    // ¦¡¦¡ Àû ·ÎÁ÷ ¦¡¦¡
+    // ì  ë¡œì§
     for (int i = 0; i < MAX_ENEMIES; ++i) {
-        if (!enemies[i].active) continue;
+        Enemy* e = &enemies[i];
+        if (!e->active) continue;
 
-        if (enemies[i].atk_cooldown > 0.0f) enemies[i].atk_cooldown -= dt;
-
-        // FREEZER: Ãæµ¹ ½Ã Å¸¿ö ¾ó¸² ºÎ¿©(Áö¼Ó)
-        if (enemies[i].type == ET_FREEZER) {
-            for (int r = 0; r < GRID_ROWS; ++r) {
-                for (int c = 0; c < GRID_COLS; ++c) {
-                    Tower* t = &grid[r][c];
-                    if (!(t->type == TOWER_ATTACK || t->type == TOWER_RESOURCE)) continue; // ÅÊÄ¿/ºóÄ­ Á¦¿Ü
-
-                    float x1, y1, x2, y2; cell_rect(r, c, &x1, &y1, &x2, &y2);
-                    float cx = (x1 + x2) * 0.5f, cy = (y1 + y2) * 0.5f;
-                    float d = distancef(enemies[i].x, enemies[i].y, cx, cy);
-
-                    // "Ãæµ¹" ÆÇÁ¤: ±âÁ¸ Àû °ø°İ »ç°Å¸® »ç¿ë
-                    if (d <= ENEMY_ATTACK_RANGE) {
-                        freezer_add_link(&enemies[i], r, c);
-                    }
-                }
+        // ìí­ íƒ€ì´ë¨¸
+        if (e->type == ET_BOMBER && e->fuse_timer > 0.0f) {
+            e->fuse_timer -= dt;
+            if (e->fuse_timer <= 0.0f) {
+                explode_bomb(e);
+                continue;
             }
         }
 
-        // ÀÏ¹İ Å¸¿ö Å¸°ÙÆÃ ¹× °ø°İ
-        Tower* target_cell = NULL;
+        if (e->atk_cooldown > 0.0f) e->atk_cooldown -= dt;
+
+        // ì£¼ë³€ íƒ€ê²Ÿ íƒ€ì›Œ íƒìƒ‰
+        Tower* target_cell = NULL; int tgt_r = -1, tgt_c = -1;
         float best_d = ENEMY_ATTACK_RANGE;
 
         for (int r = 0; r < GRID_ROWS; ++r) {
@@ -450,53 +355,61 @@ void game_update(float dt) {
                 if (grid[r][c].type == TOWER_EMPTY) continue;
                 float x1, y1, x2, y2; cell_rect(r, c, &x1, &y1, &x2, &y2);
                 float cx = (x1 + x2) * 0.5f, cy = (y1 + y2) * 0.5f;
-                float d = distancef(enemies[i].x, enemies[i].y, cx, cy);
-                if (d < best_d) { best_d = d; target_cell = &grid[r][c]; }
+                float d = distancef(e->x, e->y, cx, cy);
+                if (d < best_d) { best_d = d; target_cell = &grid[r][c]; tgt_r = r; tgt_c = c; }
             }
         }
 
         if (target_cell) {
-            if (enemies[i].atk_cooldown <= 0.0f) {
+            // â˜… íƒ€ì…ë³„ ì¶©ëŒ ì²˜ë¦¬
+            if (e->type == ET_BOMBER) {
+                // íƒ€ì›Œì™€ ì ‘ì´‰í•˜ë©´ 2ì´ˆ ë’¤ ìí­ (ì´ë¯¸ ì¹´ìš´íŠ¸ì¤‘ì´ë©´ ìœ ì§€)
+                if (e->fuse_timer <= 0.0f) e->fuse_timer = BOMB_ARM_TIME;
+            }
+            else if (e->type == ET_FREEZER) {
+                // ì ‘ì´‰í•œ íƒ€ì›Œ ì–¼ë¦¬ê¸°(íƒ±ì»¤ í¬í•¨ ì „ë¶€)
+                freezer_touch_tower(e, tgt_r, tgt_c);
+            }
+
+            // ì¼ë°˜ ê³µê²©(íƒ±ì»¤/ë¹ ë¥¸ ì  ë“±)
+            if (e->atk_cooldown <= 0.0f) {
                 target_cell->hp -= ENEMY_ATTACK_DAMAGE;
-                enemies[i].atk_cooldown = ENEMY_ATTACK_COOLDOWN;
+                e->atk_cooldown = ENEMY_ATTACK_COOLDOWN;
                 if (target_cell->hp <= 0) {
                     target_cell->type = TOWER_EMPTY;
                     target_cell->cooldown = 0.0f;
-                    target_cell->hp = 0;
-                    target_cell->freeze_stacks = 0; // ÆÄ±« ½Ã ¾ó¸²µµ ¸®¼Â
+                    target_cell->freeze_stacks = 0;
                 }
             }
         }
         else {
-            enemies[i].x -= enemies[i].speed * dt;
-            if (enemies[i].x <= GRID_X - 20) {
-                // ¡Ú È­¸é ¹ÛÀ¸·Î ºüÁ® ºñÈ°¼ºÈ­µÇ±â Àü FREEZER ¾ó¸² ÇØÁ¦
-                if (enemies[i].type == ET_FREEZER) freezer_clear_links(&enemies[i]);
-                enemies[i].active = false;
+            // íƒ€ì›Œê°€ ê°€ê¹Œì´ ì—†ìœ¼ë©´ ì´ë™
+            e->x -= e->speed * dt;
+            if (e->x <= GRID_X - 20) {
+                // í™”ë©´ í†µê³¼ â†’ ë¼ì´í”„ ê°ì†Œ, FREEZER ì–¼ìŒ í•´ì œ
+                if (e->type == ET_FREEZER) {
+                    for (int k = 0; k < e->freeze_link_count; ++k) {
+                        int rr = e->freeze_links[k].r, cc = e->freeze_links[k].c;
+                        if (rr >= 0 && rr < GRID_ROWS && cc >= 0 && cc < GRID_COLS) {
+                            if (grid[rr][cc].freeze_stacks > 0) grid[rr][cc].freeze_stacks--;
+                        }
+                    }
+                }
+                e->active = false;
                 game_state.lives--;
                 if (game_state.lives <= 0) game_state.game_over = true;
             }
         }
     }
 
-    // ¦¡¦¡ Àû ½ºÆù(½ºÅ×ÀÌÁöº° ±ÔÄ¢) ¦¡¦¡
-    {
-        float spawn_interval = 0.0f;
-        int spawn_count = 1;
-        get_stage_spawn_rule(game_state.stage, &spawn_interval, &spawn_count);
-
-        if (game_state.stage_kills < KILLS_TO_ADVANCE &&
-            (al_get_time() - last_enemy_spawn_time) >= spawn_interval) {
-
-            // interval¸¶´Ù count¸¶¸®¾¿ ½ºÆù
-            for (int i = 0; i < spawn_count; ++i) {
-                spawn_enemy();
-            }
-            last_enemy_spawn_time = al_get_time();
-        }
+    // ì  ìŠ¤í° (ê°„ë‹¨: 2ì´ˆë§ˆë‹¤ 1ë§ˆë¦¬ â€” ì´ì „ì— ë§ì¶˜ ìŠ¤í°í‘œê°€ ìˆìœ¼ë©´ ê·¸ëŒ€ë¡œ ì“°ì„¸ìš”)
+    if (game_state.stage_kills < KILLS_TO_ADVANCE &&
+        (al_get_time() - last_enemy_spawn_time > 2.0)) {
+        spawn_enemy();
+        last_enemy_spawn_time = al_get_time();
     }
 
-    // ¦¡¦¡ ÃÑ¾Ë ¾÷µ¥ÀÌÆ® ¦¡¦¡
+    // ì´ì•Œ ì—…ë°ì´íŠ¸/í”¼ê²©
     for (int i = 0; i < MAX_BULLETS; ++i) {
         Bullet* b = &bullets[i];
         if (!b->active) continue;
@@ -506,46 +419,49 @@ void game_update(float dt) {
 
         float grid_right = GRID_X + GRID_COLS * CELL_W + 50;
         float grid_bottom = GRID_Y + GRID_ROWS * CELL_H + 50;
-        if (b->x < -20 || b->x > grid_right || b->y < -20 || b->y > grid_bottom) {
-            b->active = false; continue;
-        }
+        if (b->x < -20 || b->x > grid_right || b->y < -20 || b->y > grid_bottom) { b->active = false; continue; }
 
-        for (int e = 0; e < MAX_ENEMIES; ++e) {
-            if (!enemies[e].active) continue;
-            float ex = enemies[e].x, ey = enemies[e].y;
+        for (int eidx = 0; eidx < MAX_ENEMIES; ++eidx) {
+            Enemy* e = &enemies[eidx];
+            if (!e->active) continue;
 
-            if (circle_rect_overlap(b->x, b->y, BULLET_RADIUS, ex - 8, ey - 8, ex + 8, ey + 8)) {
-                enemies[e].hp -= ATTACK_TOWER_DAMAGE;
-
-                if (enemies[e].hp <= 0) {
-                    // ¡Ú BOMB Æø¹ß
-                    if (enemies[e].type == ET_BOMBER) {
-                        bomber_explode(ex, ey);
-                        spawn_bomb_fx(ex, ey);
-                    }
-                    // ¡Ú FREEZER ÇØÁ¦
-                    if (enemies[e].type == ET_FREEZER) {
-                        freezer_clear_links(&enemies[e]);
-                    }
-
-                    enemies[e].active = false;
-                    game_state.caffeine += 20;
-                    on_enemy_killed();
-                }
-
+            // ê°„ë‹¨í•œ íˆíŠ¸ë°•ìŠ¤
+            float ex1 = e->x - 8, ey1 = e->y - 8, ex2 = e->x + 8, ey2 = e->y + 8;
+            float cx = b->x, cy = b->y, rr = BULLET_RADIUS;
+            float nnx = (cx < ex1) ? ex1 : (cx > ex2) ? ex2 : cx;
+            float nny = (cy < ey1) ? ey1 : (cy > ey2) ? ey2 : cy;
+            float dx = cx - nnx, dy = cy - nny;
+            if ((dx * dx + dy * dy) <= rr * rr) {
                 b->active = false;
+
+                e->hp -= ATTACK_TOWER_DAMAGE;
+                if (e->hp <= 0) {
+                    if (e->type == ET_BOMBER) {
+                        // ì´ì•Œë¡œ ì£½ì–´ë„ í­ë°œì€ ë°œìƒ
+                        explode_bomb(e);
+                    }
+                    else {
+                        e->active = false;
+                        game_state.caffeine += 20; // ê¸°ì¡´ ë³´ìƒ ìœ ì§€
+                        on_enemy_killed(e);
+                    }
+                }
                 break;
             }
         }
     }
 
-    // ¦¡¦¡ Æø¹ß ÀÌÆåÆ® ¾÷µ¥ÀÌÆ® ¦¡¦¡
-    update_bomb_fx();
+    // í­ë°œ ì´í™íŠ¸ ìˆ˜ëª… ê´€ë¦¬
+    for (int i = 0; i < MAX_BOMB_FX; ++i) {
+        if (!g_bomb_fx[i].active) continue;
+        double t = al_get_time() - g_bomb_fx[i].t0;
+        if (t >= g_bomb_fx[i].dur) g_bomb_fx[i].active = false;
+    }
 }
 
-// ¸ŞÀÎ ±×¸®±â
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€ ê·¸ë¦¬ê¸° â”€â”€â”€â”€â”€â”€â”€â”€â”€
 void game_draw_grid(int W, int H, int cursor_col, int cursor_row, bool show_ranges) {
-    // ¦¡¦¡ ±×¸®µå / Å¸¿ö ¦¡¦¡
+    // ê·¸ë¦¬ë“œ/íƒ€ì›Œ
     for (int r = 0; r < GRID_ROWS; ++r) {
         for (int c = 0; c < GRID_COLS; ++c) {
             float x1, y1, x2, y2; cell_rect(r, c, &x1, &y1, &x2, &y2);
@@ -554,15 +470,14 @@ void game_draw_grid(int W, int H, int cursor_col, int cursor_row, bool show_rang
             float cx = (x1 + x2) * 0.5f;
             float cy = (y1 + y2) * 0.5f;
 
-            ALLEGRO_BITMAP* tower_sprite = tower_anim_frame(&grid[r][c]);
-            if (tower_sprite) {
-                float sw = (float)al_get_bitmap_width(tower_sprite);
-                float sh = (float)al_get_bitmap_height(tower_sprite);
+            ALLEGRO_BITMAP* bmp = tower_anim_frame(&grid[r][c]);
+            if (bmp) {
+                float sw = (float)al_get_bitmap_width(bmp);
+                float sh = (float)al_get_bitmap_height(bmp);
                 float base = (CELL_W < CELL_H ? CELL_W : CELL_H) * 0.8f;
                 float scale = base / ((sw > sh) ? sw : sh);
                 float dw = sw * scale, dh = sh * scale;
-                al_draw_scaled_bitmap(tower_sprite, 0, 0, sw, sh,
-                    cx - dw / 2, cy - dh / 2, dw, dh, 0);
+                al_draw_scaled_bitmap(bmp, 0, 0, sw, sh, cx - dw / 2, cy - dh / 2, dw, dh, 0);
             }
 
             if (grid[r][c].type != TOWER_EMPTY) {
@@ -578,17 +493,17 @@ void game_draw_grid(int W, int H, int cursor_col, int cursor_row, bool show_rang
         }
     }
 
-    // ¦¡¦¡ Àû ¦¡¦¡
+    // ì 
     for (int i = 0; i < MAX_ENEMIES; ++i) {
-        if (!enemies[i].active) continue;
+        Enemy* e = &enemies[i];
+        if (!e->active) continue;
 
-        // Å¸ÀÔº° ÀÌ¹ÌÁö ¼±ÅÃ
         ALLEGRO_BITMAP* icon = NULL;
-        switch (enemies[i].type) {
-        case ET_FAST:   icon = icon_virus2; break;  // ºü¸¥ Àû (³ë¶õ»ö)
-        case ET_TANK:   icon = icon_virus1; break;  // ÅÊÅ© Àû (ÆÄ¶õ»ö)
-        case ET_BOMBER: icon = icon_virus3; break;  // ÆøÅº Àû (»¡°£»ö)
-        case ET_FREEZER:icon = icon_virus4; break;  // ¾ó¸®´Â Àû (ÇÏ´Ã»ö)
+        switch (e->type) {
+        case ET_FAST:   icon = icon_virus2; break;
+        case ET_TANK:   icon = icon_virus1; break;
+        case ET_BOMBER: icon = icon_virus3; break;
+        case ET_FREEZER:icon = icon_virus4; break;
         default:        icon = icon_virus1; break;
         }
 
@@ -597,102 +512,107 @@ void game_draw_grid(int W, int H, int cursor_col, int cursor_row, bool show_rang
             float sh = (float)al_get_bitmap_height(icon);
             float scale = 2.0f;
             float dw = sw * scale, dh = sh * scale;
-            al_draw_scaled_bitmap(icon, 0, 0, sw, sh,
-                enemies[i].x - dw * 0.5f,
-                enemies[i].y - dh * 0.5f,
-                dw, dh, 0);
+            al_draw_scaled_bitmap(icon, 0, 0, sw, sh, e->x - dw * 0.5f, e->y - dh * 0.5f, dw, dh, 0);
         }
         else {
-            // Æú¹é: Å¸ÀÔº° »ö»ó »ç°¢Çü
-            ALLEGRO_COLOR col;
-            switch (enemies[i].type) {
-            case ET_FAST:   col = al_map_rgb(255, 220, 70); break;   // ³ë¶û
-            case ET_TANK:   col = al_map_rgb(70, 120, 255); break;   // ÆÄ¶û
-            case ET_BOMBER: col = al_map_rgb(255, 100, 100); break;  // »¡°­
-            case ET_FREEZER:col = al_map_rgb(120, 200, 255); break;  // ÇÏ´Ã
-            default:        col = al_map_rgb(150, 50, 200); break;
-            }
-            al_draw_filled_rectangle(enemies[i].x - 8, enemies[i].y - 8,
-                enemies[i].x + 8, enemies[i].y + 8, col);
+            al_draw_filled_rectangle(e->x - 8, e->y - 8, e->x + 8, e->y + 8, al_map_rgb(150, 50, 200));
         }
 
-        float er = (float)enemies[i].hp / (float)ENEMY_HP; if (er < 0) er = 0;
-        float ex1 = enemies[i].x - 12, ey1 = enemies[i].y - 20, ex2 = enemies[i].x + 12, ey2 = ey1 + 4;
+        // HP ë°”
+        float er = (float)e->hp / (float)ENEMY_HP; if (er < 0) er = 0;
+        float ex1 = e->x - 12, ey1 = e->y - 20, ex2 = e->x + 12, ey2 = ey1 + 4;
         al_draw_filled_rectangle(ex1, ey1, ex2, ey2, al_map_rgb(40, 40, 40));
         al_draw_filled_rectangle(ex1, ey1, ex1 + (ex2 - ex1) * er, ey2, al_map_rgb(120, 220, 120));
     }
 
-    // ¦¡¦¡ Æø¹ß ÀÌÆåÆ® ±×¸®±â (Àû/Å¸¿ö À§·Î) ¦¡¦¡
-    draw_bomb_fx();
-
-    // ¦¡¦¡ °ø°İ ¹üÀ§ ¦¡¦¡
+    // ê³µê²© ë²”ìœ„ í‘œì‹œ
     if (show_ranges) {
-        for (int r = 0; r < GRID_ROWS; ++r) {
-            for (int c = 0; c < GRID_COLS; ++c) {
-                if (grid[r][c].type != TOWER_ATTACK) continue;
+        for (int r = 0; r < GRID_ROWS; ++r) for (int c = 0; c < GRID_COLS; ++c)
+            if (grid[r][c].type == TOWER_ATTACK) {
                 float x1, y1, x2, y2; cell_rect(r, c, &x1, &y1, &x2, &y2);
                 float cx = (x1 + x2) * 0.5f, cy = (y1 + y2) * 0.5f;
                 al_draw_circle(cx, cy, ATTACK_TOWER_RANGE, al_map_rgba(255, 255, 0, 120), 2.0f);
             }
-        }
     }
     else {
-        if (cursor_row >= 0 && cursor_row < GRID_ROWS && cursor_col >= 0 && cursor_col < GRID_COLS) {
+        if (cursor_row >= 0 && cursor_row < GRID_ROWS && cursor_col >= 0 && cursor_col < GRID_COLS)
             if (grid[cursor_row][cursor_col].type == TOWER_ATTACK) {
                 float x1, y1, x2, y2; cell_rect(cursor_row, cursor_col, &x1, &y1, &x2, &y2);
                 float cx = (x1 + x2) * 0.5f, cy = (y1 + y2) * 0.5f;
                 al_draw_circle(cx, cy, ATTACK_TOWER_RANGE, al_map_rgba(255, 255, 0, 150), 2.0f);
             }
-        }
     }
 
-    // ¦¡¦¡ Ä¿¼­ ¦¡¦¡
+    // ì»¤ì„œ
     if (cursor_row >= 0 && cursor_row < GRID_ROWS && cursor_col >= 0 && cursor_col < GRID_COLS) {
         float cx1, cy1, cx2, cy2; cell_rect(cursor_row, cursor_col, &cx1, &cy1, &cx2, &cy2);
         al_draw_rectangle(cx1 + 2, cy1 + 2, cx2 - 2, cy2 - 2, al_map_rgb(255, 255, 0), 3.0f);
     }
 
-    // ¦¡¦¡ ÃÑ¾Ë ¦¡¦¡
-    for (int i = 0; i < MAX_BULLETS; ++i) {
-        if (!bullets[i].active) continue;
+    // ì´ì•Œ
+    for (int i = 0; i < MAX_BULLETS; ++i) if (bullets[i].active) {
         ALLEGRO_BITMAP* bullet_img = NULL;
-        switch (bullets[i].image_type) {
-        case 0: bullet_img = bullet_1; break;
-        case 1: bullet_img = bullet_2; break;
-        default: bullet_img = bullet_3; break;
-        }
-        if (bullet_img) {
-            float iw = (float)al_get_bitmap_width(bullet_img);
-            float ih = (float)al_get_bitmap_height(bullet_img);
-            float scale = 3.0f;
-            al_draw_scaled_bitmap(bullet_img, 0, 0, iw, ih,
-                bullets[i].x - (iw * 0.5f),
-                bullets[i].y - (ih * 0.5f),
-                iw * scale, ih * scale, 0);
-        }
-        else {
-            al_draw_filled_circle(bullets[i].x, bullets[i].y, BULLET_RADIUS, al_map_rgb(255, 255, 255));
-        }
+    switch (bullets[i].image_type) { case 0: bullet_img = bullet_1; break; case 1: bullet_img = bullet_2; break; default: bullet_img = bullet_3; break; }
+                                           if (bullet_img) {
+                                               float iw = (float)al_get_bitmap_width(bullet_img);
+                                               float ih = (float)al_get_bitmap_height(bullet_img);
+                                               float scale = 3.0f;
+                                               al_draw_scaled_bitmap(bullet_img, 0, 0, iw, ih,
+                                                   bullets[i].x - (iw * 0.5f), bullets[i].y - (ih * 0.5f), iw * scale, ih * scale, 0);
+                                           }
+                                           else {
+                                               al_draw_filled_circle(bullets[i].x, bullets[i].y, BULLET_RADIUS, al_map_rgb(255, 255, 255));
+                                           }
     }
 
-    // ¦¡¦¡ STAGE ¹è³Ê(2ÃÊ) ¦¡¦¡
-    if (stage_banner_active) {
-        float overlay_w = (float)W * 0.6f;
-        float overlay_h = 120.0f;
-        float ox = (W - overlay_w) * 0.5f;
-        float oy = (H - overlay_h) * 0.25f;
+    // í­ë°œ ì´í™íŠ¸(1ì´ˆ, 3í”„ë ˆì„)
+    for (int i = 0; i < MAX_BOMB_FX; ++i) {
+        if (!g_bomb_fx[i].active) continue;
+        double t = al_get_time() - g_bomb_fx[i].t0;
+        double u = t / g_bomb_fx[i].dur;
+        ALLEGRO_BITMAP* fx = NULL;
+        if (u < 1.0 / 3.0) fx = icon_bombeffect1;
+        else if (u < 2.0 / 3.0) fx = icon_bombeffect2;
+        else                   fx = icon_bombeffect3;
 
-        al_draw_filled_rounded_rectangle(ox, oy, ox + overlay_w, oy + overlay_h, 12, 12, al_map_rgba(0, 0, 0, 160));
-        al_draw_rounded_rectangle(ox, oy, ox + overlay_w, oy + overlay_h, 12, 12, al_map_rgb(255, 255, 255), 2.0f);
-
-        if (font_title) {
-            char msg[64]; snprintf(msg, sizeof msg, "STAGE %d", stage_banner_stage);
-            al_draw_text(font_title, al_map_rgb(255, 255, 255), (float)W * 0.5f, oy + 35.0f, ALLEGRO_ALIGN_CENTER, msg);
+        if (fx) {
+            float sw = (float)al_get_bitmap_width(fx);
+            float sh = (float)al_get_bitmap_height(fx);
+            float scale = 3.0f;
+            float dw = sw * scale, dh = sh * scale;
+            al_draw_scaled_bitmap(fx, 0, 0, sw, sh, g_bomb_fx[i].x - dw * 0.5f, g_bomb_fx[i].y - dh * 0.5f, dw, dh, 0);
         }
+    }
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€ ìŠ¤í…Œì´ì§€ ë°°ë„ˆ í‘œì‹œ â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    if (stage_banner_active) {
+        double now = al_get_time();
+        double total = 2.0;
+        double time_left = stage_banner_until - now;
+        if (time_left < 0) time_left = 0;
+        double t = total - time_left;              // 0 â†’ 2.0
+        double a;                                   // alpha 0~1 (í˜ì´ë“œ ì¸/ì•„ì›ƒ)
+        if (t < 0.25)        a = t / 0.25;          // 0~0.25s í˜ì´ë“œ ì¸
+        else if (t > 1.75)   a = (2.0 - t) / 0.25;  // 1.75~2.0s í˜ì´ë“œ ì•„ì›ƒ
+        else                 a = 1.0;
+
+        int alpha_bg = (int)(180 * a);
+        int alpha_tx = (int)(255 * a);
+
+        // ê°€ìš´ë° ê°€ë¡œ ë°”
+        float bar_top = H * 0.40f;
+        float bar_bot = H * 0.60f;
+        al_draw_filled_rectangle(0, bar_top, (float)W, bar_bot,
+            al_map_rgba(0, 0, 0, alpha_bg));
+
+        // í…ìŠ¤íŠ¸
+        ALLEGRO_FONT* f = font_title ? font_title : font_ui;
+        al_draw_textf(f, al_map_rgba(255, 255, 255, alpha_tx),
+            W / 2.0f, H * 0.445f, ALLEGRO_ALIGN_CENTER,
+            "STAGE %d", stage_banner_stage);
     }
 }
 
-// ¦¡¦¡ ¼³Ä¡ / ÆÇ¸Å ¦¡¦¡
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€ ì„¤ì¹˜/íŒë§¤/ìƒíƒœ â”€â”€â”€â”€â”€â”€â”€â”€â”€
 void game_place_tower(TowerType type, int row, int col) {
     if (row < 0 || row >= GRID_ROWS || col < 0 || col >= GRID_COLS) return;
     if (grid[row][col].type != TOWER_EMPTY) return;
@@ -707,7 +627,7 @@ void game_place_tower(TowerType type, int row, int col) {
         grid[row][col].type = type;
         grid[row][col].cooldown = 0.0f;
         grid[row][col].hp = tower_max_hp(type);
-        grid[row][col].freeze_stacks = 0; // »õ Å¸¿ö´Â ºñ¾ó¸² »óÅÂ
+        grid[row][col].freeze_stacks = 0;
     }
 }
 
