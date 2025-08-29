@@ -63,7 +63,16 @@ static ALLEGRO_BITMAP* tower_anim_frame(TowerType t) {
 
 // ───────── 초기화 헬퍼 ─────────
 static void clear_all_enemies(void) {
-    for (int i = 0; i < MAX_ENEMIES; ++i) enemies[i].active = false;
+    for (int i = 0; i < MAX_ENEMIES; ++i) {
+        enemies[i].active = false;
+        enemies[i].x = 0.0f;
+        enemies[i].y = 0.0f;
+        enemies[i].hp = 0;
+        enemies[i].atk_cooldown = 0.0f;
+        enemies[i].type = ET_FAST;      // 기본값
+        enemies[i].speed = 0.0f;
+        enemies[i].fuse_timer = 0.0f;
+    }
 }
 static void clear_all_bullets(void) {
     for (int i = 0; i < MAX_BULLETS; ++i) bullets[i].active = false;
@@ -88,11 +97,35 @@ static void begin_stage_banner(int stage) {
 static void spawn_enemy(void) {
     for (int i = 0; i < MAX_ENEMIES; ++i) {
         if (!enemies[i].active) {
-            enemies[i].active = true;
-            enemies[i].x = GRID_X + GRID_COLS * CELL_W + 20;
-            enemies[i].y = GRID_Y + (rand() % (int)(GRID_ROWS * CELL_H));
-            enemies[i].hp = ENEMY_HP;
-            enemies[i].atk_cooldown = 0.0f;
+            Enemy* e = &enemies[i];
+            e->active = true;
+
+            // 오른쪽 끝가장자리 시작
+            float right_edge = GRID_X + GRID_COLS * CELL_W;
+            e->x = right_edge + 20.0f;
+
+            // 랜덤 행 중앙에 정확히 배치
+            int row = rand() % GRID_ROWS;
+            float x1, y1, x2, y2;
+            cell_rect(row, 0, &x1, &y1, &x2, &y2);
+            e->y = 0.5f * (y1 + y2);
+
+            // 타입 확률(가중치) 설정
+            int r = rand() % 100;
+            if (r < 50)      e->type = ET_FAST;     // 50%
+            else if (r < 85) e->type = ET_TANK;     // 35%
+            else if (r < 95) e->type = ET_BOMBER;   // 10%
+            else             e->type = ET_FREEZER;  // 5%
+
+            // 타입별 스탯 설정
+            e->atk_cooldown = 0.0f;
+            e->fuse_timer = 0.0f;
+            switch (e->type) {
+            case ET_FAST:   e->hp = FAST_HP;   e->speed = FAST_SPEED;   break;
+            case ET_TANK:   e->hp = TANK_HP;   e->speed = TANK_SPEED;   break;
+            case ET_BOMBER: e->hp = BOMB_HP;   e->speed = BOMB_SPEED;   break;
+            case ET_FREEZER:e->hp = FREEZER_HP; e->speed = FREEZER_SPEED; break;
+            }
             break;
         }
     }
@@ -247,7 +280,7 @@ void game_update(float dt) {
             }
         }
         else {
-            enemies[i].x -= ENEMY_SPEED;
+            enemies[i].x -= enemies[i].speed * dt;
             if (enemies[i].x <= GRID_X - 20) {
                 enemies[i].active = false;
                 game_state.lives--;
@@ -333,16 +366,38 @@ void game_draw_grid(int W, int H, int cursor_col, int cursor_row, bool show_rang
     for (int i = 0; i < MAX_ENEMIES; ++i) {
         if (!enemies[i].active) continue;
 
-        if (icon_virus1) {
-            float sw = (float)al_get_bitmap_width(icon_virus1);
-            float sh = (float)al_get_bitmap_height(icon_virus1);
-            float dw = sw * 2.0f, dh = sh * 2.0f;
-            al_draw_scaled_bitmap(icon_virus1, 0, 0, sw, sh,
-                enemies[i].x - dw / 2, enemies[i].y - dh / 2, dw, dh, 0);
+        // 타입별 이미지 선택
+        ALLEGRO_BITMAP* icon = NULL;
+        switch (enemies[i].type) {
+        case ET_FAST:   icon = icon_virus2; break;  // 빠른 적 (노란색)
+        case ET_TANK:   icon = icon_virus1; break;  // 탱크 적 (파란색)
+        case ET_BOMBER: icon = icon_virus3; break;  // 폭탄 적 (빨간색)
+        case ET_FREEZER:icon = icon_virus4; break;  // 얼리는 적 (하늘색)
+        default:        icon = icon_virus1; break;
+        }
+
+        if (icon) {
+            float sw = (float)al_get_bitmap_width(icon);
+            float sh = (float)al_get_bitmap_height(icon);
+            float scale = 2.0f;
+            float dw = sw * scale, dh = sh * scale;
+            al_draw_scaled_bitmap(icon, 0, 0, sw, sh,
+                enemies[i].x - dw * 0.5f,
+                enemies[i].y - dh * 0.5f,
+                dw, dh, 0);
         }
         else {
+            // 폴백: 타입별 색상 사각형
+            ALLEGRO_COLOR col;
+            switch (enemies[i].type) {
+            case ET_FAST:   col = al_map_rgb(255, 220, 70); break;   // 노랑
+            case ET_TANK:   col = al_map_rgb(70, 120, 255); break;   // 파랑
+            case ET_BOMBER: col = al_map_rgb(255, 100, 100); break;  // 빨강
+            case ET_FREEZER:col = al_map_rgb(120, 200, 255); break;  // 하늘
+            default:        col = al_map_rgb(150, 50, 200); break;
+            }
             al_draw_filled_rectangle(enemies[i].x - 8, enemies[i].y - 8,
-                enemies[i].x + 8, enemies[i].y + 8, al_map_rgb(150, 50, 200));
+                enemies[i].x + 8, enemies[i].y + 8, col);
         }
 
         float er = (float)enemies[i].hp / (float)ENEMY_HP; if (er < 0) er = 0;
@@ -383,15 +438,15 @@ void game_draw_grid(int W, int H, int cursor_col, int cursor_row, bool show_rang
         if (!bullets[i].active) continue;
         ALLEGRO_BITMAP* bullet_img = NULL;
     switch (bullets[i].image_type) { case 0: bullet_img = bullet_1; break; case 1: bullet_img = bullet_2; break; default: bullet_img = bullet_3; break; }
-                                           if (bullet_img) {
-                                               float iw = (float)al_get_bitmap_width(bullet_img);
-                                               float ih = (float)al_get_bitmap_height(bullet_img);
-                                               float scale = 3.0f;
-                                               al_draw_scaled_bitmap(bullet_img, 0, 0, iw, ih, bullets[i].x - (iw * 0.5f), bullets[i].y - (ih * 0.5f), iw * scale, ih * scale, 0);
-                                           }
-                                           else {
-                                               al_draw_filled_circle(bullets[i].x, bullets[i].y, BULLET_RADIUS, al_map_rgb(255, 255, 255));
-                                           }
+        if (bullet_img) {
+        float iw = (float)al_get_bitmap_width(bullet_img);
+        float ih = (float)al_get_bitmap_height(bullet_img);
+        float scale = 3.0f;
+        al_draw_scaled_bitmap(bullet_img, 0, 0, iw, ih, bullets[i].x - (iw * 0.5f), bullets[i].y - (ih * 0.5f), iw * scale, ih * scale, 0);
+        }
+        else {
+        al_draw_filled_circle(bullets[i].x, bullets[i].y, BULLET_RADIUS, al_map_rgb(255, 255, 255));
+        }
     }
 
     // ── STAGE 배너(2초) ──
