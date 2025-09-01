@@ -8,9 +8,7 @@ Allegro error가 뜨면 라이브러리를 삭제했다가 다시 깔아주세�
 ---
 
 ## 게임 스크린샷
-<p align="center">
-  <img src="images/sleeping_defence.png" alt="게임 플레이 화면" width="600"/>
-</p>
+<img width="951" height="706" alt="Image" src="https://github.com/user-attachments/assets/73c5ee30-e816-41eb-a9db-3361ef698ea2" />
 
 ---
 
