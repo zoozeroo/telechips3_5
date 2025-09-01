@@ -27,9 +27,6 @@
     <ClCompile Include="main.c">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="memo.c">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
     <ClCompile Include="score.c">
       <Filter>소스 파일</Filter>
     </ClCompile>

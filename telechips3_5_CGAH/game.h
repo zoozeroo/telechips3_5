@@ -2,20 +2,23 @@
 #include <stdbool.h>
 #include "app.h"  // GRID_ROWS, GRID_COLS를 위해 app.h 포함
 
-#define STARTING_CAFFEINE 200
+// 진행 기본값
+#define STARTING_CAFFEINE 300
 #define MAX_STAGES 5
 #define KILLS_TO_ADVANCE 10
+
 #define MAX_ENEMIES 50
 #define ENEMY_HP 100
 #define ENEMY_SPEED 0.8f
+
 #define ATTACK_TOWER_COST 100
 #define RESOURCE_TOWER_COST 75
 #define TANK_TOWER_COST 50
-#define ATTACK_TOWER_RANGE 150.0f // 공격 유닛 사거리
-#define ATTACK_TOWER_DAMAGE 25
+#define ATTACK_TOWER_RANGE 300.0f // 공격 유닛 사거리
+#define ATTACK_TOWER_DAMAGE 12
 #define ATTACK_TOWER_COOLDOWN 0.25f // 공격 유닛 쿨타임
-#define RESOURCE_TOWER_AMOUNT 15
-#define RESOURCE_TOWER_COOLDOWN 1.0f
+#define RESOURCE_TOWER_AMOUNT 10
+#define RESOURCE_TOWER_COOLDOWN 2.5f
 #define ATTACK_TOWER_HP 200
 #define RESOURCE_TOWER_HP 150
 #define TANK_TOWER_HP 400
@@ -24,9 +27,9 @@
 #define ENEMY_ATTACK_COOLDOWN 0.8f
 
 // 발사체 (총알)
-#define MAX_BULLETS   128
-#define BULLET_SPEED  120.0f
-#define BULLET_RADIUS 20.0f
+#define MAX_BULLETS   128      // 동시에 존재 가능한 총알(발사체) 슬롯 수
+#define BULLET_SPEED  120.0f   // 총알이 1초에 120픽셀 이동
+#define BULLET_RADIUS 20.0f    // 충돌 판정용 반지름(그림 크기 아님), 총알 크기 바꾸고 싶으면 -> BULLET_RADIUS값 바꾸기 / 화면에 보이는 크기 : game_draw_grid() 안 총알 그리기에서 float scale = 3.0f; 조정
 
 typedef enum { TOWER_EMPTY, TOWER_ATTACK, TOWER_RESOURCE, TOWER_TANK } TowerType;
 
@@ -56,7 +59,7 @@ typedef enum {
 // ★ FREEZER가 한 적 당 얼릴 수 있는 타워 최대 개수
 #define FREEZER_MAX_LINKS     32
 
-typedef struct {
+typedef struct { 
     TowerType type;
     float cooldown;
     int hp;
@@ -64,7 +67,7 @@ typedef struct {
     int  freeze_stacks;   // ★ FREEZER에게 얼려진 횟수(>0이면 동작 멈춤)
 } Tower;
 
-typedef struct {
+typedef struct { //적 공격유닛 구성요소 구조체
     bool active;
     float x, y;
     int hp;
@@ -78,7 +81,7 @@ typedef struct {
     struct { int r, c; } freeze_links[FREEZER_MAX_LINKS];
 } Enemy;
 
-typedef struct {
+typedef struct { //게임 진행요소 구조체
     int caffeine;
     int lives;
     int stage;
@@ -87,10 +90,10 @@ typedef struct {
     bool game_over;
 } GameState;
 
-typedef struct {
+typedef struct { //총알 오브젝트 구조체
     bool  active;
-    float x, y;
-    float vx, vy;
+    float x, y;     // 위치(px)
+    float vx, vy;   // 속도(px/s)
     int   image_type;
 } Bullet;
 

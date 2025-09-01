@@ -14,7 +14,7 @@ static void fmt_time_s(int sec, char* out, size_t n) {
     int s = sec % 60;
     snprintf(out, n, "%02d:%02d", m, s);
 }
-
+//배경 이미지를 게임화면에 맞게 스케일링
 static void draw_bg(ALLEGRO_BITMAP* bmp, int W, int H) {
     if (!bmp) { al_clear_to_color(al_map_rgb(18, 18, 24)); return; }
     int bw = al_get_bitmap_width(bmp);
@@ -29,7 +29,7 @@ static void draw_bg(ALLEGRO_BITMAP* bmp, int W, int H) {
 static bool point_in_rect(float px, float py, Rect r) {
     return (px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h);
 }
-
+//메인화면에 띄울 메뉴 상자 그리기
 void draw_menu(int W, int H, Rect btn_start, Rect btn_howto, Rect btn_rank, float mx, float my) {
     draw_bg(bg_home ? bg_home : bg_play, W, H);
 
@@ -55,7 +55,7 @@ void draw_menu(int W, int H, Rect btn_start, Rect btn_howto, Rect btn_rank, floa
 
     al_draw_text(font_ui, al_map_rgb(220, 220, 230), W / 2, H - 80, ALLEGRO_ALIGN_CENTER, "Click the button to start");
 }
-
+//게임 플레이 화면에 띄울 문자들
 void draw_play_with_game(int W, int H, int score_second, int sel_col, int sel_row, int selected_item, bool show_ranges) {
     draw_bg(bg_play ? bg_play : bg_home, W, H);
 
@@ -189,6 +189,7 @@ void draw_play(int W, int H, int score_second, int sel_col, int sel_row, int sel
     draw_play_with_game(W, H, score_second, sel_col, sel_row, selected_item, false);
 }
 
+//게임방법 화면에 출력할 문장
 void draw_howto(int W, int H) {
     draw_bg(bg_play, W, H);
     al_draw_text(font_title, al_map_rgb(255, 255, 255), W / 2, 120, ALLEGRO_ALIGN_CENTER, "HOW TO PLAY");
@@ -201,7 +202,7 @@ void draw_howto(int W, int H) {
 
     al_draw_text(font_ui, al_map_rgb(220, 220, 230), W / 2, H - 80, ALLEGRO_ALIGN_CENTER, "back to menu : SPACE BAR");
 }
-
+//랭킹 화면에 출력할 문장
 void draw_rank(int W, int H) {
     draw_bg(bg_rank ? bg_rank : bg_play, W, H);
     al_draw_text(font_title, al_map_rgb(20, 20, 20), W / 2, 120, ALLEGRO_ALIGN_CENTER, "RANKING");
@@ -220,7 +221,7 @@ void draw_rank(int W, int H) {
     }
     al_draw_text(font_ui, al_map_rgb(220, 220, 230), W / 2, H - 55, ALLEGRO_ALIGN_CENTER, "back to menu : SPACE BAR");
 }
-
+//게임 종료 화면에 출력할 문장
 void draw_end(int W, int H, const char* name_buf, int score_second, bool success) {
     draw_bg(bg_play, W, H);
 

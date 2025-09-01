@@ -65,17 +65,17 @@ static float distancef(float x1, float y1, float x2, float y2) {
 
 static inline bool anim_blink_1s(void) { return (((int)al_get_time()) % 2) == 0; }
 
+//냉동 바이러스에 의해 아군 유닛이 얼음 상태가 되면 아이콘 변경시키는 함수
 static ALLEGRO_BITMAP* tower_anim_frame(const Tower* t) {
-    // 얼음 상태면 종류별로 얼음 아이콘 고정 표시
     if (t->freeze_stacks > 0) {
         switch (t->type) {
         case TOWER_ATTACK:   return icon_frozen1;
         case TOWER_RESOURCE: return icon_frozen2;
-        case TOWER_TANK:     return icon_frozen3;  // 탱커도 확실히 얼음 아이콘 적용
+        case TOWER_TANK:     return icon_frozen3;
         default:             return icon_sleeping;
         }
     }
-    // 평상시 애니메이션
+    // 평상시 아이콘. 에니메이션 효과 주기 위해 1초마다 아이콘 변경됨
     bool blink = anim_blink_1s();
     switch (t->type) {
     case TOWER_EMPTY:    return icon_sleeping;
@@ -89,7 +89,7 @@ static ALLEGRO_BITMAP* tower_anim_frame(const Tower* t) {
     }
 }
 
-static void clear_all_enemies(void) {
+static void clear_all_enemies(void) { //적 상태 초기화
     for (int i = 0; i < MAX_ENEMIES; ++i) {
         enemies[i].active = false;
         enemies[i].x = enemies[i].y = 0.0f;
@@ -99,15 +99,14 @@ static void clear_all_enemies(void) {
         enemies[i].speed = 0.0f;
         enemies[i].fuse_timer = 0.0f;
         enemies[i].freeze_link_count = 0;
-        // 사운드 관련 초기화
         bomb_sound_last_beep[i] = 0.0;
         bomb_sound_started[i] = false;
     }
 }
-static void clear_all_bullets(void) {
+static void clear_all_bullets(void) {   //총알 초기화
     for (int i = 0; i < MAX_BULLETS; ++i) bullets[i].active = false;
 }
-static void clear_all_towers(void) {
+static void clear_all_towers(void) { //아군 상태 초기화
     for (int r = 0; r < GRID_ROWS; ++r) {
         for (int c = 0; c < GRID_COLS; ++c) {
             grid[r][c].type = TOWER_EMPTY;
@@ -121,14 +120,14 @@ static void clear_all_fx(void) {
     for (int i = 0; i < MAX_BOMB_FX; ++i) g_bomb_fx[i].active = false;
 }
 
-static void begin_stage_banner(int stage) {
+static void begin_stage_banner(int stage) {         //스테이지 시작 시 안내 배너 출력
     stage_banner_stage = stage;
     stage_banner_active = true;
     stage_banner_until = al_get_time() + 2.0;
     last_enemy_spawn_time = stage_banner_until;
 }
 
-static void spawn_bomb_fx(float x, float y) {
+static void spawn_bomb_fx(float x, float y) {           //폭탄 스폰
     for (int i = 0; i < MAX_BOMB_FX; ++i) {
         if (!g_bomb_fx[i].active) {
             g_bomb_fx[i].active = true;
@@ -141,23 +140,23 @@ static void spawn_bomb_fx(float x, float y) {
     }
 }
 
-// ★ 새로 추가: 오른쪽 직진 총알 발사 함수
-static int spawn_bullet_row_right(float sx, float sy) {
-    for (int i = 0; i < MAX_BULLETS; ++i) {
+// 오른쪽으로 직진하는 총알 발사 함수
+static int spawn_bullet_row_right(float sx, float sy) {     // sx, sy총알을 생성할 시작 좌표(x, y)
+    for (int i = 0; i < MAX_BULLETS; ++i) {                // MAX_BULLET 개수만큼 반복하면서, 아직 사용하지 않고 있는(active == false) 총알 슬롯을 찾음
         if (!bullets[i].active) {
-            bullets[i].active = true;
+            bullets[i].active = true;                      // 총알 활성화
             bullets[i].x = sx;
-            bullets[i].y = sy;
+            bullets[i].y = sy;    // 생성 위치를 sx, sy로 지정
             bullets[i].vx = BULLET_SPEED; // 오른쪽으로 직진
-            bullets[i].vy = 0.0f;         // 수평 유지
-            bullets[i].image_type = rand() % 3;
+            bullets[i].vy = 0.0f;         // 수평 유지(y축 변화 없음) 즉, 직선으로 오른쪽 이동
+            bullets[i].image_type = rand() % 3;  // 총알의 외형을 3가지 중 랜덤하게 선택(* [] ->)
             return i;
         }
     }
-    return -1;
+    return -1;  // 반환값 : 총알이 저장된 배열 인덱스 (없으면 -1)
 }
 
-// ───────── 스폰 ─────────
+// ───────── 적 스폰 ─────────
 static void spawn_enemy(void) {
     for (int i = 0; i < MAX_ENEMIES; ++i) {
         if (!enemies[i].active) {
@@ -172,11 +171,11 @@ static void spawn_enemy(void) {
             cell_rect(row, 0, &x1, &y1, &x2, &y2);
             e->y = 0.5f * (y1 + y2);
 
-            // 적 출현 타입 확률 (원하면 조절)
+            // 적 출현 타입 확률 지정하는 함수
             int r = rand() % 100;
-            if (r < 30)       e->type = ET_TANK;
-            else if (r < 80)  e->type = ET_FAST;
-            else if (r < 90)  e->type = ET_BOMBER;
+            if (r < 35)       e->type = ET_TANK;
+            else if (r < 70)  e->type = ET_FAST;
+            else if (r < 85)  e->type = ET_BOMBER;
             else              e->type = ET_FREEZER;
 
             e->atk_cooldown = 0.0f;
@@ -198,7 +197,7 @@ static void spawn_enemy(void) {
     }
 }
 
-// ★ 스테이지별 스폰 규칙
+// 스테이지별 적 스폰 규칙
 static void get_stage_spawn_rule(int stage, float* interval_out, int* count_out) {
     float interval = 1.0f;
     int count = 1;
@@ -242,14 +241,14 @@ static void on_enemy_killed(Enemy* e) {
     }
 }
 
-// ───────── 동작 구현(폭발/얼림) ─────────
+//자폭 바이러스의 폭발 효과 구현 함수
 static void explode_bomb(Enemy* b) {
     sound_play(SOUND_VIRUS_EXPLODE);  // 폭발 사운드
 
     // 이펙트 표시
     spawn_bomb_fx(b->x, b->y);
 
-    // 반경 내 타워 HP를 절반으로
+    // 반경 내 타워의 HP를 절반으로 감소시킴
     for (int r = 0; r < GRID_ROWS; ++r) {
         for (int c = 0; c < GRID_COLS; ++c) {
             if (grid[r][c].type == TOWER_EMPTY) continue;
@@ -265,12 +264,12 @@ static void explode_bomb(Enemy* b) {
             }
         }
     }
-
     // 스스로 사망 처리
     b->active = false;
     on_enemy_killed(b);
 }
 
+//냉동 바이러스의 얼림 효과 함수
 static bool freezer_has_link(const Enemy* frz, int r, int c) {
     for (int i = 0; i < frz->freeze_link_count; ++i) {
         if (frz->freeze_links[i].r == r && frz->freeze_links[i].c == c) return true;
@@ -296,8 +295,8 @@ static void freezer_touch_tower(Enemy* frz, int r, int c) {
     }
 }
 
-// ★ 새로 추가: 원과 사각형 충돌 검사 함수
-static bool circle_rect_overlap(float cx, float cy, float r, float rx1, float ry1, float rx2, float ry2) {
+// 원과 사각형 충돌 검사 함수
+static bool circle_rect_overlap(float cx, float cy, float r, float rx1, float ry1, float rx2, float ry2) {  // 총알을 원, 적을 작은 사각형으로 보고 충돌 여부를 검사(원의 중심에서 사각형으로 클램핑한 최근접점까지의 제곱거리 <= r의 제곱이면 겹침
     float nnx = (cx < rx1) ? rx1 : (cx > rx2) ? rx2 : cx;
     float nny = (cy < ry1) ? ry1 : (cy > ry2) ? ry2 : cy;
     float dx = cx - nnx, dy = cy - nny;
@@ -328,7 +327,7 @@ void game_init(void) {
     begin_stage_banner(1);
 }
 
-void game_reset(void) {
+void game_reset(void) { //게임 진행상황 초기화
     clear_all_enemies();
     clear_all_bullets();
     clear_all_fx();
@@ -350,7 +349,7 @@ void game_update(float dt) {
         last_enemy_spawn_time = al_get_time();
     }
 
-    // ★ 수정된 타워 로직 - 직진 발사 방식
+    // 타워 직진 발사 방식
     for (int r = 0; r < GRID_ROWS; ++r) {
         for (int c = 0; c < GRID_COLS; ++c) {
             Tower* t = &grid[r][c];
@@ -363,7 +362,7 @@ void game_update(float dt) {
             if (t->freeze_stacks > 0) continue;
 
             if (t->type == TOWER_ATTACK && t->cooldown <= 0.0f) {
-                // ★ 직진 발사 로직: 같은 행 근처 + 타워의 오른쪽 + 사거리 내 적이 있으면 발사
+                // 직진 발사 로직: 같은 행 근처 + 타워의 오른쪽 + 사거리 내 적이 있으면 발사
                 const float ROW_BAND = CELL_H * 0.45f;   // 같은 줄 판정 여유
                 const float MIN_FIRE_DISTANCE = 24.0f;   // 너무 붙은 근접 발사 방지
 
@@ -384,7 +383,7 @@ void game_update(float dt) {
 
                 if (should_fire) {
                     sound_play(SOUND_PEOPLE1_ATTACK);  // 공격 사운드
-                    // ★ 오른쪽 직진으로 총알 발사
+                    // 오른쪽 직진으로 총알 발사
                     spawn_bullet_row_right(tcx, tcy);
                     t->cooldown = ATTACK_TOWER_COOLDOWN;
                 }
@@ -402,7 +401,7 @@ void game_update(float dt) {
         Enemy* e = &enemies[i];
         if (!e->active) continue;
 
-        // ★ 폭탄 타이머 및 사운드 처리
+        // 폭탄 타이머 및 사운드 처리
         if (e->type == ET_BOMBER && e->fuse_timer > 0.0f) {
             // 사운드 처리: 0.25초마다 타이머 소리 재생
             double now = al_get_time();
@@ -436,7 +435,7 @@ void game_update(float dt) {
         }
 
         if (target_cell) {
-            // ★ 타입별 충돌 처리
+            // 타입별 충돌 처리
             if (e->type == ET_BOMBER) {
                 // 타워와 접촉하면 2초 뒤 자폭 (이미 카운트중이면 유지)
                 if (e->fuse_timer <= 0.0f) {
@@ -447,11 +446,11 @@ void game_update(float dt) {
                 }
             }
             else if (e->type == ET_FREEZER) {
-                // 접촉한 타워 얼리기(탱커 포함 전부)
+                // 접촉한 타워 얼리기
                 freezer_touch_tower(e, tgt_r, tgt_c);
             }
 
-            // 일반 공격(탱커/빠른 적 등)
+            // 적의 일반 공격(탱커/빠른 적 등)
             if (e->atk_cooldown <= 0.0f) {
                 target_cell->hp -= ENEMY_ATTACK_DAMAGE;
                 e->atk_cooldown = ENEMY_ATTACK_COOLDOWN;
@@ -482,7 +481,6 @@ void game_update(float dt) {
             }
         }
     }
-
     // ── 적 스폰(스테이지별 규칙) ──
     {
         float spawn_interval = 0.0f;
@@ -499,8 +497,7 @@ void game_update(float dt) {
             last_enemy_spawn_time = al_get_time();
         }
     }
-
-    // ★ 총알 업데이트/피격 - 새로운 충돌 검사 방식 사용
+    // 총알 업데이트/피격 - 새로운 충돌 검사 방식 사용
     for (int i = 0; i < MAX_BULLETS; ++i) {
         Bullet* b = &bullets[i];
         if (!b->active) continue;
@@ -519,7 +516,7 @@ void game_update(float dt) {
             Enemy* e = &enemies[eidx];
             if (!e->active) continue;
 
-            // ★ 새로운 충돌 검사 방식 사용
+            // 원과 사각형 충돌 검사 방식 사용
             float ex = e->x, ey = e->y;
             if (circle_rect_overlap(b->x, b->y, BULLET_RADIUS, ex - 8, ey - 8, ex + 8, ey + 8)) {
                 b->active = false;
@@ -541,7 +538,6 @@ void game_update(float dt) {
             }
         }
     }
-
     // 폭발 이펙트 수명 관리
     for (int i = 0; i < MAX_BOMB_FX; ++i) {
         if (!g_bomb_fx[i].active) continue;
@@ -621,7 +617,7 @@ void game_draw_grid(int W, int H, int cursor_col, int cursor_row, bool show_rang
         }
     }
 
-    // 공격 범위 표시
+    // 아군 공격 범위 표시
     if (show_ranges) {
         for (int r = 0; r < GRID_ROWS; ++r) for (int c = 0; c < GRID_COLS; ++c)
             if (grid[r][c].type == TOWER_ATTACK) {
@@ -713,7 +709,7 @@ void game_draw_grid(int W, int H, int cursor_col, int cursor_row, bool show_rang
     }
 }
 
-// ───────── 설치/판매/상태 ─────────
+// ───────── 설치/상태 ─────────
 void game_place_tower(TowerType type, int row, int col) {
     if (row < 0 || row >= GRID_ROWS || col < 0 || col >= GRID_COLS) return;
     if (grid[row][col].type != TOWER_EMPTY) return;
@@ -731,23 +727,6 @@ void game_place_tower(TowerType type, int row, int col) {
         grid[row][col].hp = tower_max_hp(type);
         grid[row][col].freeze_stacks = 0;
     }
-}
-
-void game_sell_tower(int row, int col) {
-    if (row < 0 || row >= GRID_ROWS || col < 0 || col >= GRID_COLS) return;
-    Tower* t = &grid[row][col];
-    if (t->type == TOWER_EMPTY) return;
-
-    int refund = 0;
-    if (t->type == TOWER_ATTACK)        refund = ATTACK_TOWER_COST / 2;
-    else if (t->type == TOWER_RESOURCE) refund = RESOURCE_TOWER_COST / 2;
-    else if (t->type == TOWER_TANK)     refund = TANK_TOWER_COST / 2;
-
-    game_state.caffeine += refund;
-    t->type = TOWER_EMPTY;
-    t->hp = 0;
-    t->cooldown = 0.0f;
-    t->freeze_stacks = 0;
 }
 
 GameState game_get_state(void) {
