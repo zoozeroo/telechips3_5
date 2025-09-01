@@ -8,6 +8,8 @@ Allegro error가 뜨면 라이브러리를 삭제했다가 다시 깔아주세�
 ---
 
 ## 게임 스크린샷
+<img width="953" height="711" alt="Image" src="https://github.com/user-attachments/assets/1576e344-831c-42f1-af26-98bfd910a296" />
+<img width="1045" height="717" alt="Image" src="https://github.com/user-attachments/assets/abe2619d-2b3b-4cf0-9ebe-7d503876d299" />
 <img width="951" height="706" alt="Image" src="https://github.com/user-attachments/assets/73c5ee30-e816-41eb-a9db-3361ef698ea2" />
 
 ---
