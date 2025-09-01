@@ -15,31 +15,95 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="ngen.c">
+    <ClCompile Include="app.c">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="test.c">
+    <ClCompile Include="assets.c">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="game.h">
+      <Filter>헤더 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="main.c">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="score.c">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="screens.c">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="game.c">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="sound.c">
       <Filter>소스 파일</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="explode1.flac">
-      <Filter>리소스 파일</Filter>
-    </None>
-    <None Include="explode2.flac">
-      <Filter>리소스 파일</Filter>
-    </None>
-    <None Include="shot.flac">
-      <Filter>리소스 파일</Filter>
-    </None>
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="bgr.png">
       <Filter>리소스 파일</Filter>
     </Image>
-    <Image Include="spritesheet.png">
+    <Image Include="..\..\..\Users\yygs3\Downloads\spritesheet.png">
       <Filter>리소스 파일</Filter>
     </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="app.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="assets.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="score.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="screens.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="sound.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Media Include="..\..\..\Users\yygs3\Downloads\virus4_freeze.mp3">
+      <Filter>리소스 파일</Filter>
+    </Media>
+    <Media Include="..\..\..\Users\yygs3\Downloads\people1_attack.mp3">
+      <Filter>리소스 파일</Filter>
+    </Media>
+    <Media Include="..\..\..\Users\yygs3\Downloads\success.mp3">
+      <Filter>리소스 파일</Filter>
+    </Media>
+    <Media Include="..\..\..\Users\yygs3\Downloads\fail.mp3">
+      <Filter>리소스 파일</Filter>
+    </Media>
+    <Media Include="..\..\..\Users\yygs3\Downloads\buy.mp3">
+      <Filter>리소스 파일</Filter>
+    </Media>
+    <Media Include="..\..\..\Users\yygs3\Downloads\life.mp3">
+      <Filter>리소스 파일</Filter>
+    </Media>
+    <Media Include="..\..\..\Users\yygs3\Downloads\button_click.mp3">
+      <Filter>리소스 파일</Filter>
+    </Media>
+    <Media Include="..\..\..\Users\yygs3\Downloads\people2_coin.mp3">
+      <Filter>리소스 파일</Filter>
+    </Media>
+    <Media Include="..\..\..\Users\yygs3\Downloads\virus3_timer.mp3">
+      <Filter>리소스 파일</Filter>
+    </Media>
+    <Media Include="..\..\..\Users\yygs3\Downloads\virus3_explode.mp3">
+      <Filter>리소스 파일</Filter>
+    </Media>
+    <Media Include="..\..\..\Users\yygs3\Downloads\bgm_game.mp3">
+      <Filter>리소스 파일</Filter>
+    </Media>
+    <Media Include="..\..\..\Users\yygs3\Downloads\bgm_other.mp3">
+      <Filter>리소스 파일</Filter>
+    </Media>
   </ItemGroup>
 </Project>

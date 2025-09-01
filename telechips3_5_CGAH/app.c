@@ -1,4 +1,4 @@
-#define _CRT_SECURE_NO_WARNINGS
+﻿#define _CRT_SECURE_NO_WARNINGS
 #include <string.h>
 #include <allegro5/allegro5.h>
 #include <allegro5/allegro_font.h>
@@ -9,20 +9,55 @@
 #include "assets.h"
 #include "score.h"
 #include "screens.h"
+#include "game.h"
+#include "sound.h"
 
-typedef enum { STATE_MENU = 0, STATE_PLAY, STATE_HOWTO, STATE_RANK, STATE_END } GameState;
+typedef enum { STATE_MENU = 0, STATE_PLAY, STATE_HOWTO, STATE_RANK, STATE_END } AppState;
 typedef enum { RESULT_NONE = 0, RESULT_SUCCESS, RESULT_FAIL } GameResult;
 
-static GameState  g_state = STATE_MENU;
+static AppState   g_state = STATE_MENU;
 static GameResult g_result = RESULT_NONE;
 
+//랭킹에 반영될 플레이어 이름 기록용
 static char   name_buf[NAME_MAX] = { 0 };
 static int    name_len = 0;
 static bool   end_recorded = false;
 static double play_start_time = 0.0;
 
+// 플레이 화면 커서
+static int  cursor_col = 0, cursor_row = 0;
+static int  selected_item = 0;
+static bool show_all_ranges = false;
+
+// ── 일시정지 상태 ──
+static bool g_paused = false;
+static int  pause_sel = 0; // 0: Resume, 1: Main Menu
+
+//사각형 안에 커서가 있는지 확인하는 함수
 static bool point_in_rect(float px, float py, Rect r) {
     return (px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h);
+}
+
+// ★ 새로 추가: 상태에 따른 배경음악 관리
+static void manage_bgm_for_state(AppState state) {
+    switch (state) {
+    case STATE_MENU:
+    case STATE_HOWTO:
+    case STATE_RANK:
+    case STATE_END:
+        // 메뉴 관련 화면들은 모두 bgm_other 사용
+        if (bgm_get_current() != BGM_OTHER) {
+            bgm_play(BGM_OTHER);
+        }
+        break;
+
+    case STATE_PLAY:
+        // 게임 화면에서는 bgm_game 사용
+        if (bgm_get_current() != BGM_GAME) {
+            bgm_play(BGM_GAME);
+        }
+        break;
+    }
 }
 
 int app_run(void) {
@@ -32,15 +67,21 @@ int app_run(void) {
     al_init_font_addon();
     al_init_primitives_addon();
     if (!al_init_image_addon()) return 1;
+    if (!sound_init()) {
+        printf("Warning: Sound system failed to initialize\n");
+    }
 
-    const int W = 800, H = 600;
+    const int W = 960, H = 720; // 게임창 크기
     ALLEGRO_DISPLAY* disp = al_create_display(W, H);
     if (!disp) return 1;
 
     score_load(SCORE_FILE);
     if (!assets_load()) return 1;
 
-    ALLEGRO_TIMER* frame_timer = al_create_timer(1.0 / 60.0); // 60Hz
+    // ★ 초기 배경음악 시작 (메뉴 화면)
+    manage_bgm_for_state(g_state);
+
+    ALLEGRO_TIMER* frame_timer = al_create_timer(1.0 / 60.0);
     ALLEGRO_EVENT_QUEUE* q = al_create_event_queue();
 
     al_register_event_source(q, al_get_timer_event_source(frame_timer));
@@ -49,17 +90,17 @@ int app_run(void) {
     al_register_event_source(q, al_get_mouse_event_source());
     al_start_timer(frame_timer);
 
+    //메인화면에 띄울 세 가지 버튼 생성
     Rect btn_start = { W / 2.0f - 120, H / 2.0f - 100, 240, 50 };
     Rect btn_howto = { W / 2.0f - 120, H / 2.0f - 25, 240, 50 };
     Rect btn_rank = { W / 2.0f - 120, H / 2.0f + 50, 240, 50 };
 
-    float mx = 0, my = 0;
-    int   score = 0;
+    // 일시정지 창 버튼
+    Rect btn_resume = { W / 2.0f - 160, H / 2.0f - 40, 320, 58 };
+    Rect btn_main = { W / 2.0f - 160, H / 2.0f + 32, 320, 58 };
 
-    // ����/������ ���� ����
-    int selected_item = 0;          // 0=���þ���, 1/2/3
-    int sel_col = 0, sel_row = 0;   // Ŀ�� ��ġ(0,0) ����
-    int grid_marks[GRID_ROWS][GRID_COLS]; // 0=����, 1/2/3 ��
+    float mx = 0, my = 0;
+    int final_score = 0;
 
     bool running = true, redraw = true;
 
@@ -71,36 +112,99 @@ int app_run(void) {
             running = false;
         }
         else if (ev.type == ALLEGRO_EVENT_TIMER) {
-            if (ev.timer.source == frame_timer) redraw = true;
+            if (ev.timer.source == frame_timer) {
+                redraw = true;
+
+                if (g_state == STATE_PLAY) {
+                    // 일시정지 중에는 게임 로직 정지
+                    if (!g_paused) {
+                        game_update(1.0f / 60.0f);
+                    }
+
+                    //게임오버 상태
+                    GameState gs = game_get_state();
+                    if (gs.game_over || gs.lives <= 0) {
+                        sound_play(SOUND_FAIL);
+                        g_result = RESULT_FAIL;
+                        final_score = (int)(al_get_time() - play_start_time);
+                        g_state = STATE_END;
+                        g_paused = false; // 혹시 모를 잔여 정지 해제
+                        // 상태 변경시 배경음악 관리
+                        manage_bgm_for_state(g_state);
+                    }
+                    else if (gs.cleared) {
+                        sound_play(SOUND_SUCCESS);
+                        g_result = RESULT_SUCCESS;
+                        final_score = (int)(al_get_time() - play_start_time);
+                        g_state = STATE_END;
+                        g_paused = false;
+                        // 상태 변경시 배경음악 관리
+                        manage_bgm_for_state(g_state);
+                    }
+                }
+            }
         }
         else if (ev.type == ALLEGRO_EVENT_MOUSE_AXES) {
             mx = ev.mouse.x; my = ev.mouse.y;
+
+            // 마우스로 일시정지 창 버튼 hover → 선택 이동
+            if (g_state == STATE_PLAY && g_paused) {
+                if (point_in_rect(mx, my, btn_resume)) pause_sel = 0;
+                else if (point_in_rect(mx, my, btn_main)) pause_sel = 1;
+            }
         }
+
+        //각 state 별 버튼 눌렀을 때 해당하는 다음 state로 이동시키는 함수
         else if (ev.type == ALLEGRO_EVENT_MOUSE_BUTTON_DOWN) {
-            if (g_state == STATE_MENU) {
-                if (point_in_rect(mx, my, btn_start)) {
+            if (g_state == STATE_MENU) {            //메뉴 상태일 때
+                if (point_in_rect(mx, my, btn_start)) {     //스타트 버튼을 누를 시 (각 변수 초기화)
+                    sound_play(SOUND_BUTTON_CLICK);
                     g_state = STATE_PLAY;
                     g_result = RESULT_NONE;
-                    score = 0;
+                    final_score = 0;
                     end_recorded = false;
                     name_len = 0; name_buf[0] = '\0';
                     play_start_time = al_get_time();
 
+                    cursor_col = 0; cursor_row = 0;
                     selected_item = 0;
-                    sel_col = 0; sel_row = 0;
-                    memset(grid_marks, 0, sizeof grid_marks);
+                    show_all_ranges = false;
+                    g_paused = false; pause_sel = 0;
+                    game_reset();
+                    game_init();
+                    // 상태 변경시 배경음악 관리
+                    manage_bgm_for_state(g_state);
                 }
-                else if (point_in_rect(mx, my, btn_howto)) {
+                else if (point_in_rect(mx, my, btn_howto)) {        //게임방법 버튼을 누를 시 
+                    sound_play(SOUND_BUTTON_CLICK);
                     g_state = STATE_HOWTO; g_result = RESULT_NONE;
+                    // 상태 변경시 배경음악 관리 (하지만 둘 다 BGM_OTHER이므로 변화 없음)
+                    manage_bgm_for_state(g_state);
                 }
-                else if (point_in_rect(mx, my, btn_rank)) {
+                else if (point_in_rect(mx, my, btn_rank)) {         //랭킹 버튼을 누를 시
+                    sound_play(SOUND_BUTTON_CLICK);
                     g_state = STATE_RANK;  g_result = RESULT_NONE;
+                    // 상태 변경시 배경음악 관리 (하지만 둘 다 BGM_OTHER이므로 변화 없음)
+                    manage_bgm_for_state(g_state);
+                }
+            }
+            else if (g_state == STATE_PLAY && g_paused) {           //플레이 중 일시정지 버튼 눌렀을 때
+                // ★ 마우스로 일시정지 버튼 클릭
+                if (point_in_rect(mx, my, btn_resume)) {            //게임 재개
+                    sound_play(SOUND_BUTTON_CLICK);
+                    g_paused = false;
+                }
+                else if (point_in_rect(mx, my, btn_main)) {         //메인으로 이동
+                    sound_play(SOUND_BUTTON_CLICK);
+                    g_state = STATE_MENU;
+                    g_paused = false;
+                    // ★ 상태 변경시 배경음악 관리
+                    manage_bgm_for_state(g_state);
                 }
             }
         }
-        else if (ev.type == ALLEGRO_EVENT_KEY_CHAR) {
-            // END������ ���� �Է�(�г���)
-            if (g_state == STATE_END) {
+        else if (ev.type == ALLEGRO_EVENT_KEY_CHAR) {           //플레이어 이름 입력용(키보드 자판)
+            if (g_state == STATE_END) {                         //게임 종료 상태일 때 
                 int ch = ev.keyboard.unichar;
                 if (ev.keyboard.keycode == ALLEGRO_KEY_BACKSPACE) {
                     if (name_len > 0) name_buf[--name_len] = '\0';
@@ -115,85 +219,137 @@ int app_run(void) {
         }
         else if (ev.type == ALLEGRO_EVENT_KEY_DOWN) {
             int key = ev.keyboard.keycode;
-            if (key == ALLEGRO_KEY_ESCAPE) running = false;
+            if (key == ALLEGRO_KEY_ESCAPE) running = false;         //ESC 키 입력 시 게임 실행 종료
 
-            if (g_state == STATE_HOWTO) {
-                if (key == ALLEGRO_KEY_SPACE) g_state = STATE_MENU;
+            if (g_state == STATE_HOWTO) {                           //게임방법 창에서 스페이스바 누르면 메인화면으로 돌아감
+                if (key == ALLEGRO_KEY_SPACE) {
+                    g_state = STATE_MENU;
+                    // ★ 상태 변경시 배경음악 관리 (하지만 둘 다 BGM_OTHER이므로 변화 없음)
+                    manage_bgm_for_state(g_state);
+                }
             }
-            else if (g_state == STATE_RANK) {
-                if (key == ALLEGRO_KEY_SPACE) g_state = STATE_MENU;
+            else if (g_state == STATE_RANK) {                       //랭킹 화면에서 스페이스바 누르면 메인화면으로 돌아감
+                if (key == ALLEGRO_KEY_SPACE) {
+                    g_state = STATE_MENU;
+                    // ★ 상태 변경시 배경음악 관리 (하지만 둘 다 BGM_OTHER이므로 변화 없음)
+                    manage_bgm_for_state(g_state);
+                }
             }
-            else if (g_state == STATE_PLAY) {
-                // WASD : ������ ����/���� (��� ����)
+            else if (g_state == STATE_PLAY) {                   //플레이 화면에서
+
+                // ── 일시정지 창 On/Off ──
+                if (key == ALLEGRO_KEY_BACKSPACE) {             //백스페이스 누르면 일시정지 상태
+                    g_paused = !g_paused;
+                    pause_sel = 0; // 기본 Resume에 포커스
+                    continue;
+                }
+
+                if (g_paused) {                             // 일시정지 상태에서
+                    if (key == ALLEGRO_KEY_LEFT || key == ALLEGRO_KEY_UP) {         //방향키로 버튼 이동
+                        pause_sel = (pause_sel + 1) % 2;
+                    }
+                    else if (key == ALLEGRO_KEY_RIGHT || key == ALLEGRO_KEY_DOWN) { //방향키로 버튼 이동
+                        pause_sel = (pause_sel + 1) % 2;
+                    }
+                    else if (key == ALLEGRO_KEY_ENTER || key == ALLEGRO_KEY_SPACE) {    //엔터, 스페이스바로 버튼 이동
+                        if (pause_sel == 0) {                                   //게임 재개
+                            sound_play(SOUND_BUTTON_CLICK);
+                            g_paused = false;
+                        }
+                        else {                              //메인으로 이동
+                            sound_play(SOUND_BUTTON_CLICK);
+                            g_state = STATE_MENU;
+                            g_paused = false;
+                            // 상태 변경시 배경음악 관리
+                            manage_bgm_for_state(g_state);
+                        }
+                    }
+                    // 일시정지 중엔 다른 조작 무시
+                    continue;
+                }
+
+                // ── 평상시 조작 ──
+                // 아이템 선택 (WASD)
                 switch (key) {
+                case ALLEGRO_KEY_W: selected_item = 0; break;
                 case ALLEGRO_KEY_A: selected_item = 1; break;
                 case ALLEGRO_KEY_S: selected_item = 2; break;
                 case ALLEGRO_KEY_D: selected_item = 3; break;
-                case ALLEGRO_KEY_W: selected_item = 0; break;
                 }
 
-                // ����Ű Ŀ�� �̵�
-                if (key == ALLEGRO_KEY_LEFT && sel_col > 0)               sel_col--;
-                if (key == ALLEGRO_KEY_RIGHT && sel_col < GRID_COLS - 1)   sel_col++;
-                if (key == ALLEGRO_KEY_UP && sel_row > 0)               sel_row--;
-                if (key == ALLEGRO_KEY_DOWN && sel_row < GRID_ROWS - 1)   sel_row++;
+                // 커서 이동
+                if (key == ALLEGRO_KEY_LEFT && cursor_col > 0) cursor_col--;
+                if (key == ALLEGRO_KEY_RIGHT && cursor_col < GRID_COLS - 1) cursor_col++;
+                if (key == ALLEGRO_KEY_UP && cursor_row > 0) cursor_row--;
+                if (key == ALLEGRO_KEY_DOWN && cursor_row < GRID_ROWS - 1) cursor_row++;
 
+                // 타워 설치/판매
                 if (key == ALLEGRO_KEY_SPACE) {
-                    if (selected_item >= 1 && selected_item <= 3 &&
-                        grid_marks[sel_row][sel_col] == 0) {
-                        grid_marks[sel_row][sel_col] = selected_item;
-                    }
+                    if (selected_item == 1)      game_place_tower(TOWER_ATTACK, cursor_row, cursor_col);
+                    else if (selected_item == 2) game_place_tower(TOWER_RESOURCE, cursor_row, cursor_col);
+                    else game_place_tower(TOWER_TANK, cursor_row, cursor_col);
                 }
 
-                // ���� ����(����/����) �� ������ �ҿ� �ð�(��)
+                // 범위 표시 토글
+                if (key == ALLEGRO_KEY_R) show_all_ranges = !show_all_ranges;
+
+                // 강제 종료(테스트) — 필요시 유지
                 if (key == ALLEGRO_KEY_ENTER) {
                     g_result = RESULT_SUCCESS;
-                    score = (int)(al_get_time() - play_start_time);
+                    final_score = (int)(al_get_time() - play_start_time);
                     g_state = STATE_END;
-                }
-                else if (key == ALLEGRO_KEY_BACKSPACE) {
-                    g_result = RESULT_FAIL;
-                    score = (int)(al_get_time() - play_start_time);
-                    g_state = STATE_END;
+                    // 상태 변경시 배경음악 관리
+                    manage_bgm_for_state(g_state);
                 }
             }
-            else if (g_state == STATE_END) {
-                if (key == ALLEGRO_KEY_ENTER) {
+            else if (g_state == STATE_END) {        //게임 종료 시
+                if (key == ALLEGRO_KEY_ENTER) {     //엔터 누르면 점수 저장하고 메인화면으로 이동
                     if (!end_recorded) {
-                        score_add_and_save(score, name_buf, SCORE_FILE);
+                        score_add_and_save(final_score, name_buf, SCORE_FILE);
                         end_recorded = true;
                     }
                     g_state = STATE_MENU;
+                    // 상태 변경시 배경음악 관리
+                    manage_bgm_for_state(g_state);
                 }
-                else if (key == ALLEGRO_KEY_SPACE) {
+                else if (key == ALLEGRO_KEY_SPACE) {            //스페이스바 누르면 점수 저장 없이 메인화면으로 이동
                     g_state = STATE_MENU;
+                    // 상태 변경시 배경음악 관리
+                    manage_bgm_for_state(g_state);
                 }
             }
         }
 
-        // === �׸���(�̺�Ʈ �б� �ٱ�) ===
-        if (redraw && al_is_event_queue_empty(q)) {
+        if (redraw && al_is_event_queue_empty(q)) {     //버튼에 마우스 갖다대면 버튼 색깔을 바꾸는 함수
             switch (g_state) {
             case STATE_MENU:
                 draw_menu(W, H, btn_start, btn_howto, btn_rank, mx, my);
                 break;
             case STATE_PLAY: {
                 int live_sec = (int)(al_get_time() - play_start_time);
-                draw_play(W, H, live_sec, sel_col, sel_row, selected_item, grid_marks);
+                draw_play_with_game(W, H, live_sec, cursor_col, cursor_row, selected_item, show_all_ranges);
+
+                // 일시정지 오버레이(버튼 하이라이트는 마우스 hover 또는 pause_sel로 처리)
+                if (g_paused) {
+                    draw_pause_overlay(W, H, btn_resume, btn_main, pause_sel, mx, my);
+                }
                 break;
             }
             case STATE_HOWTO: draw_howto(W, H); break;
             case STATE_RANK:  draw_rank(W, H);  break;
-            case STATE_END:   draw_end(W, H, name_buf, score, (g_result == RESULT_SUCCESS)); break;
+            case STATE_END:   draw_end(W, H, name_buf, final_score, (g_result == RESULT_SUCCESS)); break;
             }
             al_flip_display();
             redraw = false;
         }
     }
 
+    // 종료 전 해제
+    bgm_stop();
     assets_unload();
     al_destroy_event_queue(q);
     al_destroy_timer(frame_timer);
     al_destroy_display(disp);
+    sound_cleanup();
     return 0;
 }
