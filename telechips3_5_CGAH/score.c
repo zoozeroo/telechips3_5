@@ -66,7 +66,6 @@ void score_add_and_save(int seconds, const char* name, const char* path) {
     FILE* f = NULL;
     if (fopen_s(&f, path, "w") != 0 || !f) return;
     for (int i = 0; i < s_count && i < MAX_SCORE; ++i) {
-        // �׻� �� �������� ����
         fprintf(f, "%s,%d,%d\n", s_highscores[i].name, s_highscores[i].stage, s_highscores[i].time);
     }
     fclose(f);
