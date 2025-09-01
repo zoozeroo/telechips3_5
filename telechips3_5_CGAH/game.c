@@ -166,25 +166,22 @@ static StageEnemyStats get_stage_enemy_stats(int stage) {
         stats.damage_bonus = 0;
         break;
     case 2:
-        stats.speed_multiplier = 1.2f;
-        stats.damage_bonus = 5;
+        stats.speed_multiplier = 1.1f;
+        stats.damage_bonus = 10;
         break;
     case 3:
-        stats.speed_multiplier = 1.5f;
-        stats.damage_bonus = 12;
+        stats.speed_multiplier = 1.2f;
+        stats.damage_bonus = 15;
         break;
     case 4:
-        stats.speed_multiplier = 1.8f;
+        stats.speed_multiplier = 1.3f;
         stats.damage_bonus = 20;
         break;
     case 5:
-        stats.speed_multiplier = 2.2f;
+        stats.speed_multiplier = 1.5f;
         stats.damage_bonus = 30;
         break;
     default:
-        // 5스테이지 이후에도 계속 진행하는 경우
-        stats.speed_multiplier = 2.5f + (stage - 5) * 0.3f;
-        stats.damage_bonus = 30 + (stage - 5) * 10;
         break;
     }
 
@@ -414,7 +411,7 @@ void game_update(float dt) {
             if (t->type == TOWER_ATTACK && t->cooldown <= 0.0f) {
                 // 직진 발사 로직: 같은 행 근처 + 타워의 오른쪽 + 사거리 내 적이 있으면 발사
                 const float ROW_BAND = CELL_H * 0.45f;   // 같은 줄 판정 여유
-                const float MIN_FIRE_DISTANCE = 24.0f;   // 너무 붙은 근접 발사 방지
+                const float MIN_FIRE_DISTANCE = 10.0f;   // 너무 붙은 근접 발사 방지
 
                 bool should_fire = false;
                 for (int i = 0; i < MAX_ENEMIES; ++i) {

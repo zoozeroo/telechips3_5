@@ -42,7 +42,7 @@ void draw_menu(int W, int H, Rect btn_start, Rect btn_howto, Rect btn_rank, floa
     ALLEGRO_COLOR fill_rank = hover_rank ? al_map_rgb(153, 217, 234) : al_map_rgb(255, 207, 106);
     ALLEGRO_COLOR text = al_map_rgb(255, 255, 255);
 
-    al_draw_text(font_title, al_map_rgb(20, 20, 20), W / 2, 120, ALLEGRO_ALIGN_CENTER, "CLASS 7 : Sleeping Defence");
+    al_draw_text(font_title, al_map_rgb(20, 20, 20), W / 2, 150, ALLEGRO_ALIGN_CENTER, "CLASS 7 : Sleeping Defence");
 
     al_draw_filled_rounded_rectangle(btn_start.x, btn_start.y, btn_start.x + btn_start.w, btn_start.y + btn_start.h, 6, 6, fill_start);
     al_draw_text(font_ui, text, W / 2, btn_start.y + 15, ALLEGRO_ALIGN_CENTER, "START GAME");
@@ -134,14 +134,10 @@ void draw_play_with_game(int W, int H, int score_second, int sel_col, int sel_ro
 
     // 상태 UI
     al_draw_text(font_title, al_map_rgb(255, 255, 255), W / 2, 140, ALLEGRO_ALIGN_CENTER, "SLEEPING DEFENCE");
-    al_draw_textf(font_ui, al_map_rgb(0, 0, 0), 40, 140, 0, "TIME: %s | Caffeine: %d | Lives: %d", t, gs.caffeine, gs.lives);
+    al_draw_textf(font_ui, al_map_rgb(0, 0, 0), 40, 140, 0, "TIME: %s | Caffeine: %d", t, gs.caffeine);
     al_draw_textf(font_ui, al_map_rgb(0, 0, 0), 40, 160, 0, "Stage %d/%d | Kills: %d/%d", gs.stage, MAX_STAGES, gs.stage_kills, KILLS_TO_ADVANCE);
 
-    // 조작법
-    al_draw_text(font_ui, al_map_rgb(180, 180, 200), W / 2, H - 100, ALLEGRO_ALIGN_CENTER, "WASD: Select Item | Arrow: Move Cursor | Space: Place/Sell | R: Show Ranges");
-    al_draw_text(font_ui, al_map_rgb(180, 180, 200), W / 2, H - 80, ALLEGRO_ALIGN_CENTER, "Enter: Force Win | Backspace: Pause | ESC: Quit");
-
-    // 게임 그리드
+   // 게임 그리드
     game_draw_grid(W, H, sel_col, sel_row, show_ranges);
 }
 
@@ -192,20 +188,25 @@ void draw_play(int W, int H, int score_second, int sel_col, int sel_row, int sel
 //게임방법 화면에 출력할 문장
 void draw_howto(int W, int H) {
     draw_bg(bg_play, W, H);
-    al_draw_text(font_title, al_map_rgb(255, 255, 255), W / 2, 120, ALLEGRO_ALIGN_CENTER, "HOW TO PLAY");
+    al_draw_text(font_title, al_map_rgb(30, 30, 30), W / 2, 145, ALLEGRO_ALIGN_CENTER, "HOW TO PLAY");
 
-    al_draw_text(font_ui, al_map_rgb(200, 220, 240), W / 2, 180, ALLEGRO_ALIGN_CENTER, "Defend against sleeping students!");
-    al_draw_text(font_ui, al_map_rgb(200, 220, 240), W / 2, 210, ALLEGRO_ALIGN_CENTER, "Place coffee towers to wake them up");
-    al_draw_text(font_ui, al_map_rgb(200, 220, 240), W / 2, 240, ALLEGRO_ALIGN_CENTER, "Resource towers generate caffeine");
-    al_draw_text(font_ui, al_map_rgb(200, 220, 240), W / 2, 270, ALLEGRO_ALIGN_CENTER, "Tank towers absorb damage");
-    al_draw_text(font_ui, al_map_rgb(200, 220, 240), W / 2, 300, ALLEGRO_ALIGN_CENTER, "Survive all 5 stages to win!");
+    al_draw_text(font_title, al_map_rgb(255, 255, 255), W / 2, 230, ALLEGRO_ALIGN_CENTER, "[Rules]");
+    al_draw_text(font_ui, al_map_rgb(200, 220, 240), W / 2, 260, ALLEGRO_ALIGN_CENTER, "Defend against sleeping students!");
+    al_draw_text(font_ui, al_map_rgb(200, 220, 240), W / 2, 290, ALLEGRO_ALIGN_CENTER, "Place coffee towers to wake them up");
+    al_draw_text(font_ui, al_map_rgb(200, 220, 240), W / 2, 320, ALLEGRO_ALIGN_CENTER, "Resource towers generate caffeine");
+    al_draw_text(font_ui, al_map_rgb(200, 220, 240), W / 2, 350, ALLEGRO_ALIGN_CENTER, "Tank towers absorb damage");
+    al_draw_text(font_ui, al_map_rgb(200, 220, 240), W / 2, 380, ALLEGRO_ALIGN_CENTER, "Survive all 5 stages to win!");
+
+    al_draw_text(font_title, al_map_rgb(255, 255, 255), W / 2, H - 270, ALLEGRO_ALIGN_CENTER, "[Operation]");
+    al_draw_text(font_ui, al_map_rgb(180, 180, 200), W / 2, H - 240, ALLEGRO_ALIGN_CENTER, "WASD: Select Item | Arrow: Move Cursor | Space: Place/Sell | R: Show Ranges");
+    al_draw_text(font_ui, al_map_rgb(180, 180, 200), W / 2, H - 210, ALLEGRO_ALIGN_CENTER, "Enter: Force Win | Backspace: Pause | ESC: Quit");
 
     al_draw_text(font_ui, al_map_rgb(220, 220, 230), W / 2, H - 80, ALLEGRO_ALIGN_CENTER, "back to menu : SPACE BAR");
 }
 //랭킹 화면에 출력할 문장
 void draw_rank(int W, int H) {
     draw_bg(bg_rank ? bg_rank : bg_play, W, H);
-    al_draw_text(font_title, al_map_rgb(20, 20, 20), W / 2, 120, ALLEGRO_ALIGN_CENTER, "RANKING");
+    al_draw_text(font_title, al_map_rgb(20, 20, 20), W / 2, 145, ALLEGRO_ALIGN_CENTER, "RANKING");
 
     int view = score_count_get(); if (view > 10) view = 10;
     for (int i = 0; i < view; ++i) {
@@ -214,13 +215,14 @@ void draw_rank(int W, int H) {
 
         al_draw_textf(
             font_ui, al_map_rgb(255, 255, 255),
-            W / 2, 140 + (i + 1) * 30, ALLEGRO_ALIGN_CENTER,
+            W / 2, 230 + (i + 1) * 30, ALLEGRO_ALIGN_CENTER,
             "%d. %s  |  Stage %d  |  Time %s",
             i + 1, e.name, e.stage, t
         );
     }
     al_draw_text(font_ui, al_map_rgb(220, 220, 230), W / 2, H - 55, ALLEGRO_ALIGN_CENTER, "back to menu : SPACE BAR");
 }
+
 //게임 종료 화면에 출력할 문장
 void draw_end(int W, int H, const char* name_buf, int score_second, bool success) {
     draw_bg(bg_play, W, H);

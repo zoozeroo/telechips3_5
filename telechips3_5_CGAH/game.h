@@ -5,7 +5,7 @@
 // 진행 기본값
 #define STARTING_CAFFEINE 300
 #define MAX_STAGES 5
-#define KILLS_TO_ADVANCE 10
+#define KILLS_TO_ADVANCE 15
 
 #define MAX_ENEMIES 50
 #define ENEMY_HP 100
@@ -17,7 +17,7 @@
 #define ATTACK_TOWER_RANGE 300.0f // 공격 유닛 사거리
 #define ATTACK_TOWER_DAMAGE 12
 #define ATTACK_TOWER_COOLDOWN 0.25f // 공격 유닛 쿨타임
-#define RESOURCE_TOWER_AMOUNT 10
+#define RESOURCE_TOWER_AMOUNT 15
 #define RESOURCE_TOWER_COOLDOWN 2.5f
 #define ATTACK_TOWER_HP 200
 #define RESOURCE_TOWER_HP 150
@@ -42,7 +42,7 @@ typedef enum {
 
 // 적 유닛별 스탯 정의
 #define FAST_HP     60
-#define FAST_SPEED  100.0f
+#define FAST_SPEED  70.0f
 #define TANK_HP     180
 #define TANK_SPEED  20.0f
 #define BOMB_HP               50
