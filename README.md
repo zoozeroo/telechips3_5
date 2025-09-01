@@ -7,6 +7,13 @@ Allegro error가 뜨면 라이브러리를 삭제했다가 다시 깔아주세�
 
 ---
 
+## 게임 스크린샷
+<p align="center">
+  <img src="images/sleeping_defence.png" alt="게임 플레이 화면" width="600"/>
+</p>
+
+---
+
 ## 게임 목표
 - **주 목표**: 1~5단계 스테이지 클리어
 - **승리 조건**: 각 스테이지에서 15마리의 적 처치
