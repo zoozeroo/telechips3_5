@@ -145,8 +145,8 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <Image Include="..\..\..\Users\yygs3\Downloads\spritesheet.png" />
     <Image Include="bgr.png" />
+    <Image Include="spritesheet.png" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="app.h" />

@@ -107,7 +107,7 @@ bool assets_load(void) {
     //냉동 바이러스 얼림 이펙트 아이콘
     icon_frozen1 = al_create_sub_bitmap(spr_items, FPX1, FPY1, FPWH, FPWH);
     icon_frozen2 = al_create_sub_bitmap(spr_items, FPX1, FPY2, FPWH, FPWH);
-    icon_frozen3 = al_create_sub_bitmap(spr_items, FPX2, FPY2, FPWH, FPWH);
+    icon_frozen3 = al_create_sub_bitmap(spr_items, P1X, P0Y, FPWH, FPWH);
     if (!bullet_1 || !bullet_2 || !bullet_3) return false; // 총알 이미지 체크
 
     return true;

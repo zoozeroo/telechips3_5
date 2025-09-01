@@ -97,6 +97,12 @@ typedef struct { //총알 오브젝트 구조체
     int   image_type;
 } Bullet;
 
+// 스테이지별 적군 스탯 테이블 정의
+typedef struct {
+    float speed_multiplier;
+    int damage_bonus;  // 기본 공격력에 더할 추가 데미지
+} StageEnemyStats;
+
 void game_init(void);
 void game_update(float dt);
 void game_draw_grid(int W, int H, int cursor_col, int cursor_row, bool show_ranges);
@@ -104,3 +110,5 @@ void game_place_tower(TowerType type, int row, int col);
 void game_sell_tower(int row, int col);
 GameState game_get_state(void);
 void game_reset(void);
+StageEnemyStats get_stage_enemy_stats(int stage);
+

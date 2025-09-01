@@ -156,6 +156,41 @@ static int spawn_bullet_row_right(float sx, float sy) {     // sx, sy총알을 생성
     return -1;  // 반환값 : 총알이 저장된 배열 인덱스 (없으면 -1)
 }
 
+// 스테이지별 적군 스탯 테이블
+static StageEnemyStats get_stage_enemy_stats(int stage) {
+    StageEnemyStats stats;
+
+    switch (stage) {
+    case 1:
+        stats.speed_multiplier = 1.0f;
+        stats.damage_bonus = 0;
+        break;
+    case 2:
+        stats.speed_multiplier = 1.2f;
+        stats.damage_bonus = 5;
+        break;
+    case 3:
+        stats.speed_multiplier = 1.5f;
+        stats.damage_bonus = 12;
+        break;
+    case 4:
+        stats.speed_multiplier = 1.8f;
+        stats.damage_bonus = 20;
+        break;
+    case 5:
+        stats.speed_multiplier = 2.2f;
+        stats.damage_bonus = 30;
+        break;
+    default:
+        // 5스테이지 이후에도 계속 진행하는 경우
+        stats.speed_multiplier = 2.5f + (stage - 5) * 0.3f;
+        stats.damage_bonus = 30 + (stage - 5) * 10;
+        break;
+    }
+
+    return stats;
+}
+
 // ───────── 적 스폰 ─────────
 static void spawn_enemy(void) {
     for (int i = 0; i < MAX_ENEMIES; ++i) {
@@ -186,11 +221,26 @@ static void spawn_enemy(void) {
             bomb_sound_last_beep[i] = 0.0;
             bomb_sound_started[i] = false;
 
+            // 스테이지별 스탯 적용
+            StageEnemyStats stage_stats = get_stage_enemy_stats(game_state.stage);
+
             switch (e->type) {
-            case ET_FAST:   e->hp = FAST_HP;   e->speed = FAST_SPEED;   break;
-            case ET_TANK:   e->hp = TANK_HP;   e->speed = TANK_SPEED;   break;
-            case ET_BOMBER: e->hp = BOMB_HP;   e->speed = BOMB_SPEED;   break;
-            case ET_FREEZER:e->hp = FREEZER_HP; e->speed = FREEZER_SPEED; break;
+            case ET_FAST:
+                e->hp = FAST_HP;
+                e->speed = FAST_SPEED * stage_stats.speed_multiplier;
+                break;
+            case ET_TANK:
+                e->hp = TANK_HP;
+                e->speed = TANK_SPEED * stage_stats.speed_multiplier;
+                break;
+            case ET_BOMBER:
+                e->hp = BOMB_HP;
+                e->speed = BOMB_SPEED * stage_stats.speed_multiplier;
+                break;
+            case ET_FREEZER:
+                e->hp = FREEZER_HP;
+                e->speed = FREEZER_SPEED * stage_stats.speed_multiplier;
+                break;
             }
             break;
         }
@@ -452,7 +502,11 @@ void game_update(float dt) {
 
             // 적의 일반 공격(탱커/빠른 적 등)
             if (e->atk_cooldown <= 0.0f) {
-                target_cell->hp -= ENEMY_ATTACK_DAMAGE;
+                // ★ 스테이지별 공격력 적용
+                StageEnemyStats stage_stats = get_stage_enemy_stats(game_state.stage);
+                int damage = ENEMY_ATTACK_DAMAGE + stage_stats.damage_bonus;
+
+                target_cell->hp -= damage;
                 e->atk_cooldown = ENEMY_ATTACK_COOLDOWN;
                 if (target_cell->hp <= 0) {
                     target_cell->type = TOWER_EMPTY;
